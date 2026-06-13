@@ -97,6 +97,142 @@ h3 {
   background-size: 40px 40px;
 }
 
+.hero-dashboard {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(340px, 0.72fr) minmax(300px, 0.5fr);
+  gap: 18px;
+  max-width: 1580px;
+  margin: 0 auto 18px;
+  border: 1px solid rgba(206, 241, 205, 0.14);
+  border-radius: 8px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(13, 25, 22, 0.9), rgba(5, 10, 9, 0.96));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.hero-copy {
+  align-self: center;
+}
+
+.atlas-mark {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border: 1px solid rgba(229, 198, 107, 0.42);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero-copy h1 {
+  font-size: clamp(2.6rem, 5.4vw, 5.8rem);
+}
+
+.hero-copy p {
+  max-width: 680px;
+  color: #c3d5c8;
+  font-size: 1.02rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.hero-orbit {
+  position: relative;
+  min-height: 290px;
+  border: 1px solid rgba(206, 241, 205, 0.12);
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 50%, rgba(107, 211, 154, 0.14), transparent 26%), rgba(3, 8, 7, 0.32);
+  overflow: hidden;
+}
+
+.hero-orbit::before,
+.hero-orbit::after {
+  content: "";
+  position: absolute;
+  inset: 38px;
+  border: 1px solid rgba(206, 241, 205, 0.13);
+  border-radius: 50%;
+}
+
+.hero-orbit::after {
+  inset: 72px 42px;
+  transform: rotate(-18deg);
+  border-color: rgba(229, 198, 107, 0.14);
+}
+
+.orbit-node {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid rgba(206, 241, 205, 0.24);
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(8, 17, 15, 0.86);
+  color: var(--text);
+  font-weight: 950;
+  box-shadow: 0 0 24px rgba(107, 211, 154, 0.18);
+}
+
+.orbit-node.seed { left: 42%; top: 43%; background: var(--gold); color: var(--ink); }
+.orbit-node.quest { left: 10%; top: 24%; }
+.orbit-node.boss { right: 11%; top: 28%; }
+.orbit-node.raid { right: 18%; bottom: 15%; }
+
+.orbit-line {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(107, 211, 154, 0.65), transparent);
+  transform-origin: left center;
+}
+
+.orbit-line.l1 { left: 28%; top: 34%; width: 42%; transform: rotate(18deg); }
+.orbit-line.l2 { left: 47%; top: 49%; width: 36%; transform: rotate(-24deg); }
+.orbit-line.l3 { left: 48%; top: 56%; width: 34%; transform: rotate(34deg); }
+
+.hero-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-metrics article,
+.insight-strip article,
+.atlas-toolbar article,
+.node-depth article {
+  border: 1px solid rgba(206, 241, 205, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(3, 8, 7, 0.3);
+}
+
+.hero-metrics span,
+.insight-strip span,
+.atlas-toolbar span,
+.node-depth span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-metrics strong,
+.insight-strip strong,
+.atlas-toolbar strong,
+.node-depth strong {
+  display: block;
+  color: var(--gold);
+  font-size: 1.08rem;
+}
+
 .onboarding {
   display: grid;
   min-height: 100vh;
@@ -325,6 +461,19 @@ button:hover {
   padding: 12px;
 }
 
+.insight-strip {
+  display: grid;
+  max-width: 1580px;
+  margin: 0 auto 14px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.insight-strip small {
+  display: block;
+  margin-top: 4px;
+}
+
 input,
 select,
 textarea {
@@ -433,6 +582,13 @@ main {
     linear-gradient(135deg, rgba(6, 15, 13, 0.9), rgba(11, 22, 20, 0.96));
 }
 
+.atlas-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .graph-wrap svg {
   display: block;
   width: 100%;
@@ -515,10 +671,15 @@ main {
 
 .task-list,
 .unlock-list,
-.linked-list {
+.linked-list,
+.node-depth {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.node-depth {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .task-list article,
@@ -575,6 +736,34 @@ main {
 .wiki-stats {
   grid-template-columns: repeat(4, minmax(100px, 1fr));
   margin-bottom: 14px;
+}
+
+.kind-spectrum {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.kind-spectrum button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  overflow: hidden;
+  justify-content: start;
+  text-align: left;
+}
+
+.kind-spectrum button > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  opacity: 0.22;
+}
+
+.kind-spectrum strong,
+.kind-spectrum small {
+  position: relative;
+  z-index: 1;
 }
 
 .wiki-stats article {
@@ -760,6 +949,7 @@ small {
 
   .onboarding-card,
   .command-header,
+  .hero-dashboard,
   .atlas-layout,
   .pathfinder-layout,
   .ledger-layout,
@@ -775,6 +965,8 @@ small {
 
   .resource-bar,
   .progress-ribbon,
+  .insight-strip,
+  .atlas-toolbar,
   .recommendation-grid,
   .archive-grid,
   .tier-ladder,
@@ -816,10 +1008,13 @@ small {
 
   .resource-bar,
   .progress-ribbon,
+  .insight-strip,
+  .atlas-toolbar,
   .recommendation-grid,
   .archive-grid,
   .tier-ladder,
   .unlock-list,
+  .node-depth,
   .wiki-stats,
   .wiki-results button,
   .event-feed article,

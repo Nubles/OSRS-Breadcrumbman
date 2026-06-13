@@ -93,6 +93,14 @@ function App() {
   const wikiNodes = wikiGraph?.nodes || [];
   const wikiNodeMap = useMemo(() => new Map(wikiNodes.map((node) => [node.id, node])), [wikiNodes]);
   const selectedWikiNode = wikiNodeMap.get(selectedWikiId) || wikiNodes[0];
+  const kindCounts = useMemo(() => {
+    const counts = new Map<NodeKind, number>();
+    for (const node of wikiNodes) counts.set(node.kind, (counts.get(node.kind) || 0) + 1);
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [wikiNodes]);
+  const campaignHealth = Math.min(100, Math.round((stats.completed * 4 + stats.revealed * 1.4 + state.rescueTokens * 6 + stats.maxTier * 8) / 2));
+  const nextBest = recommendations.slice().sort((a, b) => a.tier - b.tier || b.links.length - a.links.length)[0];
+  const nearestGoalStep = route.find((node) => !state.completedNodeIds.includes(node.id)) || goalNode;
   const filteredWikiNodes = wikiNodes
     .filter((node) => {
       const haystack = `${node.title} ${node.kind} ${node.summary} ${node.categories.join(" ")}`.toLowerCase();
@@ -243,6 +251,33 @@ function App() {
 
   return (
     <div className="app-shell">
+      <section className="hero-dashboard">
+        <div className="hero-copy">
+          <span className="atlas-mark">Wiki snowball mode</span>
+          <h1>Breadcrumbman Atlas</h1>
+          <p>Start with a single OSRS page, reveal connected knowledge, and turn the entire wiki into a living progression web.</p>
+          <div className="hero-actions">
+            <button className="primary" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas" }))}>Open live atlas</button>
+            <button onClick={() => patchState((current) => ({ ...current, activeTab: "wiki" }))}>Search wiki graph</button>
+          </div>
+        </div>
+        <div className="hero-orbit" aria-hidden="true">
+          <span className="orbit-node seed">Seed</span>
+          <span className="orbit-node quest">Quest</span>
+          <span className="orbit-node boss">Boss</span>
+          <span className="orbit-node raid">Raid</span>
+          <span className="orbit-line l1" />
+          <span className="orbit-line l2" />
+          <span className="orbit-line l3" />
+        </div>
+        <div className="hero-metrics">
+          <article><span>Campaign health</span><strong>{campaignHealth}%</strong></article>
+          <article><span>Next branch</span><strong>{nextBest?.label || "Choose seed"}</strong></article>
+          <article><span>Goal step</span><strong>{nearestGoalStep.label}</strong></article>
+          <article><span>Wiki layer</span><strong>{wikiGraph?.pageCount || 0} pages</strong></article>
+        </div>
+      </section>
+
       <header className="command-header">
         <div className="brand-lockup">
           <div className="brand-seal">BM</div>
@@ -289,6 +324,29 @@ function App() {
         </div>
       </section>
 
+      <section className="insight-strip">
+        <article>
+          <span>Current seed</span>
+          <strong>{getNode(state.seedNodeId)?.label || "Lumbridge"}</strong>
+          <small>The root of this account's legal knowledge web.</small>
+        </article>
+        <article>
+          <span>Frontier pressure</span>
+          <strong>{state.activeNodeIds.filter((id) => !state.completedNodeIds.includes(id)).length} open</strong>
+          <small>Active breadcrumbs waiting to be completed.</small>
+        </article>
+        <article>
+          <span>Scholar favour</span>
+          <strong>{state.scholarFavour}</strong>
+          <small>Earned by completing higher-tier pages.</small>
+        </article>
+        <article>
+          <span>Wiki density</span>
+          <strong>{wikiGraph ? Math.round(wikiGraph.edgeCount / Math.max(1, wikiGraph.pageCount)) : 0}/page</strong>
+          <small>Average synced links per wiki page.</small>
+        </article>
+      </section>
+
       <nav className="tab-bar" aria-label="Breadcrumbman sections">
         {tabs.map((tab) => (
           <button key={tab.id} className={state.activeTab === tab.id ? "active" : ""} onClick={() => patchState((current) => ({ ...current, activeTab: tab.id }))}>
@@ -315,6 +373,12 @@ function App() {
                     {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
                   </select>
                 </div>
+              </div>
+              <div className="atlas-toolbar">
+                <article><span>Visible</span><strong>{visibleNodes.length}</strong></article>
+                <article><span>Filtered</span><strong>{filteredNodes.length}</strong></article>
+                <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
+                <article><span>Mode</span><strong>{RULE_MODES[state.ruleMode].label}</strong></article>
               </div>
               <GraphCanvas state={state} nodes={filteredNodes} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
             </div>
@@ -343,6 +407,15 @@ function App() {
                 <article><span>Links</span><strong>{wikiGraph?.edgeCount || 0}</strong></article>
                 <article><span>Categories</span><strong>{Object.keys(wikiGraph?.categories || {}).length}</strong></article>
                 <article><span>Generated</span><strong>{wikiGraph?.generatedAt === "not-synced" ? "Pending" : "Synced"}</strong></article>
+              </div>
+              <div className="kind-spectrum">
+                {kindCounts.slice(0, 10).map(([kind, count]) => (
+                  <button key={kind} onClick={() => setWikiKindFilter(kind)}>
+                    <span style={{ background: nodeKindColor(kind), width: `${Math.max(16, Math.min(100, count / Math.max(1, wikiNodes.length) * 280))}%` }} />
+                    <strong>{KIND_LABELS[kind]}</strong>
+                    <small>{count}</small>
+                  </button>
+                ))}
               </div>
               <div className="filter-row">
                 <input value={wikiQuery} onChange={(event) => setWikiQuery(event.target.value)} placeholder="Search wiki pages, categories, summaries" />
@@ -572,6 +645,11 @@ function NodeInspector(props: {
       <section className="task-list">
         <h3>Completion packet</h3>
         {node.tasks.map((task) => <article key={task}>{task}</article>)}
+      </section>
+      <section className="node-depth">
+        <article><span>Tier</span><strong>{TIER_NAMES[node.tier]}</strong></article>
+        <article><span>Links</span><strong>{node.links.length}</strong></article>
+        <article><span>Tags</span><strong>{node.tags.length}</strong></article>
       </section>
       <section className="unlock-list">
         <h3>Legalizes</h3>
