@@ -17,9 +17,11 @@ import {
   unique
 } from "./engine";
 import { AppTab, BreachRecord, GraphNode, NodeKind, RuleMode, RunState } from "./types";
+import type { WikiGraphData, WikiGraphNode } from "./types";
 
 const tabs: { id: AppTab; label: string; caption: string }[] = [
   { id: "atlas", label: "Atlas", caption: "Reveal and complete nodes" },
+  { id: "wiki", label: "Wiki Graph", caption: "Search synced OSRS pages" },
   { id: "pathfinder", label: "Pathfinder", caption: "Plan routes to goals" },
   { id: "ledger", label: "Ledger", caption: "Archive, breaches, saves" },
   { id: "rules", label: "Rules", caption: "Mode variants and codex" }
@@ -57,11 +59,25 @@ function App() {
   const [state, setState] = useState<RunState>(() => loadState());
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [query, setQuery] = useState("");
+  const [wikiQuery, setWikiQuery] = useState("");
+  const [wikiKindFilter, setWikiKindFilter] = useState<NodeKind | "all">("all");
+  const [selectedWikiId, setSelectedWikiId] = useState("");
+  const [wikiGraph, setWikiGraph] = useState<WikiGraphData | null>(null);
   const [kindFilter, setKindFilter] = useState<NodeKind | "all">("all");
   const [breachDraft, setBreachDraft] = useState({ title: "", penalty: "", nodeId: "" });
   const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => saveState(state), [state]);
+  useEffect(() => {
+    fetch(`${BASE_URL}wiki-graph.json`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: WikiGraphData | null) => {
+        if (!data || !Array.isArray(data.nodes)) return;
+        setWikiGraph(data);
+        setSelectedWikiId(data.nodes[0]?.id || "");
+      })
+      .catch(() => undefined);
+  }, []);
 
   const selectedNode = getNode(state.selectedNodeId) || getNode(state.seedNodeId) || GRAPH_NODES[0];
   const stats = graphStats(state);
@@ -74,6 +90,16 @@ function App() {
   });
   const completedNodes = state.completedNodeIds.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
   const goalNode = getNode(state.goalNodeId) || getNode("completion-cape")!;
+  const wikiNodes = wikiGraph?.nodes || [];
+  const wikiNodeMap = useMemo(() => new Map(wikiNodes.map((node) => [node.id, node])), [wikiNodes]);
+  const selectedWikiNode = wikiNodeMap.get(selectedWikiId) || wikiNodes[0];
+  const filteredWikiNodes = wikiNodes
+    .filter((node) => {
+      const haystack = `${node.title} ${node.kind} ${node.summary} ${node.categories.join(" ")}`.toLowerCase();
+      return haystack.includes(wikiQuery.toLowerCase()) && (wikiKindFilter === "all" || node.kind === wikiKindFilter);
+    })
+    .sort((a, b) => b.inbound + b.outbound - (a.inbound + a.outbound))
+    .slice(0, 300);
 
   function patchState(updater: (current: RunState) => RunState) {
     setState((current) => updater(current));
@@ -299,6 +325,43 @@ function App() {
               onActivate={markActive}
               onRescue={() => patchState(rescueReveal)}
             />
+          </section>
+        )}
+
+        {state.activeTab === "wiki" && (
+          <section className="wiki-layout">
+            <article className="panel wiki-command">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Synced wiki layer</p>
+                  <h2>OSRS Wiki graph foundation</h2>
+                  <p>The curated atlas stays playable. This generated layer is the path toward whole-wiki coverage: searchable pages, categories, links, and future reveal candidates.</p>
+                </div>
+              </div>
+              <div className="wiki-stats">
+                <article><span>Pages</span><strong>{wikiGraph?.pageCount || 0}</strong></article>
+                <article><span>Links</span><strong>{wikiGraph?.edgeCount || 0}</strong></article>
+                <article><span>Categories</span><strong>{Object.keys(wikiGraph?.categories || {}).length}</strong></article>
+                <article><span>Generated</span><strong>{wikiGraph?.generatedAt === "not-synced" ? "Pending" : "Synced"}</strong></article>
+              </div>
+              <div className="filter-row">
+                <input value={wikiQuery} onChange={(event) => setWikiQuery(event.target.value)} placeholder="Search wiki pages, categories, summaries" />
+                <select value={wikiKindFilter} onChange={(event) => setWikiKindFilter(event.target.value as NodeKind | "all")}>
+                  <option value="all">All wiki types</option>
+                  {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
+                </select>
+              </div>
+              <div className="wiki-results">
+                {filteredWikiNodes.map((node) => (
+                  <button key={node.id} className={selectedWikiNode?.id === node.id ? "selected" : ""} onClick={() => setSelectedWikiId(node.id)}>
+                    <span style={{ color: nodeKindColor(node.kind) }}>{KIND_LABELS[node.kind]}</span>
+                    <strong>{node.title}</strong>
+                    <small>{node.inbound} in / {node.outbound} out / Tier {node.tier}</small>
+                  </button>
+                ))}
+              </div>
+            </article>
+            <WikiInspector node={selectedWikiNode} nodeMap={wikiNodeMap} onPick={setSelectedWikiId} />
           </section>
         )}
 
@@ -535,4 +598,52 @@ function NodeInspector(props: {
   );
 }
 
+function WikiInspector(props: {
+  node?: WikiGraphNode;
+  nodeMap: Map<string, WikiGraphNode>;
+  onPick: (id: string) => void;
+}) {
+  const { node, nodeMap, onPick } = props;
+  if (!node) {
+    return (
+      <aside className="node-inspector">
+        <p className="eyebrow">Wiki graph</p>
+        <h2>No generated wiki data yet</h2>
+        <p>Run the wiki sync script to populate the whole-wiki layer.</p>
+      </aside>
+    );
+  }
+  const linked = node.links.map((id) => nodeMap.get(id)).filter(Boolean) as WikiGraphNode[];
+  return (
+    <aside className="node-inspector wiki-inspector">
+      <div className="node-heading">
+        <div>
+          <p className="eyebrow">{KIND_LABELS[node.kind]} / Tier {node.tier}</p>
+          <h2>{node.title}</h2>
+          <p>{node.summary || "No extract available from the synced graph yet."}</p>
+        </div>
+      </div>
+      <div className="wiki-link-actions">
+        <a href={node.url} target="_blank" rel="noreferrer">Open wiki page</a>
+      </div>
+      <section className="unlock-list">
+        <h3>Categories</h3>
+        {node.categories.map((category) => <span key={category}>{category.replace(/_/g, " ")}</span>)}
+      </section>
+      <section className="linked-list">
+        <h3>Synced links</h3>
+        {linked.slice(0, 40).map((link) => (
+          <button key={link.id} onClick={() => onPick(link.id)}>
+            <span style={{ color: nodeKindColor(link.kind) }}>{KIND_LABELS[link.kind]}</span>
+            <strong>{link.title}</strong>
+            <small>{link.inbound + link.outbound}</small>
+          </button>
+        ))}
+      </section>
+    </aside>
+  );
+}
+
 export default App;
+
+const BASE_URL = import.meta.env?.BASE_URL || "/";

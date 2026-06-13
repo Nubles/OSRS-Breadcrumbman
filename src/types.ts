@@ -18,7 +18,29 @@ export type NodeKind =
 export type ProgressTier = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type NodeState = "hidden" | "revealed" | "active" | "complete" | "blocked" | "breached";
 export type RuleMode = "cozy" | "standard" | "strict" | "brutal";
-export type AppTab = "atlas" | "pathfinder" | "ledger" | "rules";
+export type AppTab = "atlas" | "wiki" | "pathfinder" | "ledger" | "rules";
+
+export interface WikiGraphNode {
+  id: string;
+  title: string;
+  kind: NodeKind;
+  tier: ProgressTier;
+  summary: string;
+  url: string;
+  categories: string[];
+  links: string[];
+  inbound: number;
+  outbound: number;
+}
+
+export interface WikiGraphData {
+  generatedAt: string;
+  source: string;
+  pageCount: number;
+  edgeCount: number;
+  categories: Record<string, number>;
+  nodes: WikiGraphNode[];
+}
 
 export interface GraphNode {
   id: string;

@@ -548,7 +548,8 @@ main {
 
 .pathfinder-layout,
 .ledger-layout,
-.rules-grid {
+.rules-grid,
+.wiki-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
@@ -560,9 +561,83 @@ main {
 .event-feed,
 .backup-list,
 .route-chain,
-.tier-ladder {
+.tier-ladder,
+.wiki-results,
+.wiki-stats {
   display: grid;
   gap: 10px;
+}
+
+.wiki-command {
+  min-height: 720px;
+}
+
+.wiki-stats {
+  grid-template-columns: repeat(4, minmax(100px, 1fr));
+  margin-bottom: 14px;
+}
+
+.wiki-stats article {
+  border: 1px solid rgba(206, 241, 205, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(3, 8, 7, 0.32);
+}
+
+.wiki-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wiki-stats strong {
+  color: var(--cyan);
+  font-size: 1.35rem;
+}
+
+.wiki-results {
+  max-height: 560px;
+  margin-top: 14px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.wiki-results button {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  width: 100%;
+  justify-content: start;
+  text-align: left;
+}
+
+.wiki-results button.selected {
+  border-color: rgba(123, 212, 230, 0.55);
+  background: rgba(123, 212, 230, 0.12);
+}
+
+.wiki-link-actions {
+  margin: 14px 0;
+}
+
+.wiki-link-actions a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  border: 1px solid rgba(123, 212, 230, 0.38);
+  border-radius: 6px;
+  padding: 9px 13px;
+  color: #bceeff;
+  text-decoration: none;
+  font-weight: 850;
+}
+
+.wiki-inspector .linked-list {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .recommendation-grid {
@@ -688,7 +763,8 @@ small {
   .atlas-layout,
   .pathfinder-layout,
   .ledger-layout,
-  .rules-grid {
+  .rules-grid,
+  .wiki-layout {
     grid-template-columns: 1fr;
   }
 
@@ -701,7 +777,8 @@ small {
   .progress-ribbon,
   .recommendation-grid,
   .archive-grid,
-  .tier-ladder {
+  .tier-ladder,
+  .wiki-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -743,6 +820,8 @@ small {
   .archive-grid,
   .tier-ladder,
   .unlock-list,
+  .wiki-stats,
+  .wiki-results button,
   .event-feed article,
   .breach-list article,
   .backup-list article,
