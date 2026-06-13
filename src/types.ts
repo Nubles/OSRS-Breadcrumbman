@@ -25,6 +25,7 @@ export interface WikiGraphNode {
   title: string;
   kind: NodeKind;
   tier: ProgressTier;
+  completion?: "playable";
   summary: string;
   url: string;
   categories: string[];
@@ -33,12 +34,25 @@ export interface WikiGraphNode {
   outbound: number;
 }
 
+export interface ExcludedWikiPage {
+  id: string;
+  title: string;
+  kind: NodeKind;
+  reason: string;
+  url: string;
+  summary: string;
+}
+
 export interface WikiGraphData {
   generatedAt: string;
   source: string;
+  policy?: string;
   pageCount: number;
+  playableCount?: number;
+  excludedCount?: number;
   edgeCount: number;
   categories: Record<string, number>;
+  excluded?: ExcludedWikiPage[];
   nodes: WikiGraphNode[];
 }
 

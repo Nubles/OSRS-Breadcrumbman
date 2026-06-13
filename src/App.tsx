@@ -91,6 +91,8 @@ function App() {
   const completedNodes = state.completedNodeIds.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
   const goalNode = getNode(state.goalNodeId) || getNode("completion-cape")!;
   const wikiNodes = wikiGraph?.nodes || [];
+  const excludedWikiPages = wikiGraph?.excluded || [];
+  const completionPolicyLabel = wikiGraph?.policy === "completion-safe-v1" ? "Completable" : "Legacy";
   const wikiNodeMap = useMemo(() => new Map(wikiNodes.map((node) => [node.id, node])), [wikiNodes]);
   const selectedWikiNode = wikiNodeMap.get(selectedWikiId) || wikiNodes[0];
   const kindCounts = useMemo(() => {
@@ -274,7 +276,7 @@ function App() {
           <article><span>Campaign health</span><strong>{campaignHealth}%</strong></article>
           <article><span>Next branch</span><strong>{nextBest?.label || "Choose seed"}</strong></article>
           <article><span>Goal step</span><strong>{nearestGoalStep.label}</strong></article>
-          <article><span>Wiki layer</span><strong>{wikiGraph?.pageCount || 0} pages</strong></article>
+          <article><span>Wiki layer</span><strong>{wikiGraph?.playableCount || wikiGraph?.pageCount || 0} pages</strong></article>
         </div>
       </section>
 
@@ -342,7 +344,7 @@ function App() {
         </article>
         <article>
           <span>Wiki density</span>
-          <strong>{wikiGraph ? Math.round(wikiGraph.edgeCount / Math.max(1, wikiGraph.pageCount)) : 0}/page</strong>
+          <strong>{wikiGraph ? Math.round(wikiGraph.edgeCount / Math.max(1, wikiGraph.playableCount || wikiGraph.pageCount)) : 0}/page</strong>
           <small>Average synced links per wiki page.</small>
         </article>
       </section>
@@ -399,13 +401,20 @@ function App() {
                 <div>
                   <p className="eyebrow">Synced wiki layer</p>
                   <h2>OSRS Wiki graph foundation</h2>
-                  <p>The curated atlas stays playable. This generated layer is the path toward whole-wiki coverage: searchable pages, categories, links, and future reveal candidates.</p>
+                  <p>The generated layer only keeps pages that can be completed on a fresh account today. Holiday, limited, discontinued, and event-only pages are kept out of the playable graph.</p>
                 </div>
               </div>
+              <div className="completion-banner">
+                <div>
+                  <span>Completable filter</span>
+                  <strong>{completionPolicyLabel}</strong>
+                </div>
+                <p>{excludedWikiPages.length} risky wiki pages are excluded from progression so no run depends on old events, unobtainable rewards, or limited-time content.</p>
+              </div>
               <div className="wiki-stats">
-                <article><span>Pages</span><strong>{wikiGraph?.pageCount || 0}</strong></article>
+                <article><span>Playable</span><strong>{wikiGraph?.playableCount || wikiGraph?.pageCount || 0}</strong></article>
+                <article><span>Excluded</span><strong>{wikiGraph?.excludedCount || excludedWikiPages.length}</strong></article>
                 <article><span>Links</span><strong>{wikiGraph?.edgeCount || 0}</strong></article>
-                <article><span>Categories</span><strong>{Object.keys(wikiGraph?.categories || {}).length}</strong></article>
                 <article><span>Generated</span><strong>{wikiGraph?.generatedAt === "not-synced" ? "Pending" : "Synced"}</strong></article>
               </div>
               <div className="kind-spectrum">
@@ -432,6 +441,20 @@ function App() {
                     <small>{node.inbound} in / {node.outbound} out / Tier {node.tier}</small>
                   </button>
                 ))}
+              </div>
+              <div className="excluded-drawer">
+                <div className="mini-heading">
+                  <span>Excluded from progression</span>
+                  <strong>{excludedWikiPages.length}</strong>
+                </div>
+                <div>
+                  {excludedWikiPages.slice(0, 18).map((page) => (
+                    <a key={page.id} href={page.url} target="_blank" rel="noreferrer">
+                      <span>{page.reason}</span>
+                      <strong>{page.title}</strong>
+                    </a>
+                  ))}
+                </div>
               </div>
             </article>
             <WikiInspector node={selectedWikiNode} nodeMap={wikiNodeMap} onPick={setSelectedWikiId} />

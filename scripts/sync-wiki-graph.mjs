@@ -33,6 +33,23 @@ const HARD_SKIP = [
   "Exchange:"
 ];
 
+const COMPLETION_EXCLUSIONS = [
+  { label: "holiday event", pattern: /\b(holiday|christmas|easter|halloween|thanksgiving|midsummer|birthday|anniversary)\s+(event|reward|item|shop|token|crate|present|balloon|cake|hat|cape|costume)\b/i },
+  { label: "seasonal event", pattern: /\b(seasonal|limited-time|limited time|one-off|temporary)\s+(event|reward|item|content|shop)\b/i },
+  { label: "no longer obtainable", pattern: /\b(no longer obtainable|unobtainable|discontinued|removed from the game|could only be obtained|was only obtainable|was previously obtainable)\b/i },
+  { label: "event-only source", pattern: /\b(obtained from|reward from|rewarded from|purchased from|available during|released during|introduced during).{0,90}\b(christmas|easter|halloween|thanksgiving|midsummer|birthday|anniversary|holiday)\b/i },
+  { label: "past event participation", pattern: /\b(first obtained|originally obtained|obtained by participating|obtained during|rewarded for completing).{0,90}\b(event|holiday)\b/i },
+  { label: "unreleased content", pattern: /\b(unreleased|not currently available|not available in-game)\b/i },
+  { label: "proposed content", pattern: /\b(proposed to players|proposed skill|skill concept|was a skill in development|would not be released|not released in old school runescape)\b/i }
+];
+
+const TITLE_EXCLUSIONS = new Map([
+  ["unused shops", "unused content"],
+  ["taming", "proposed content"],
+  ["summoning", "unreleased content"],
+  ["warding", "proposed content"]
+]);
+
 const limit = Number(process.env.WIKI_LIMIT || "0");
 const delayMs = Number(process.env.WIKI_DELAY_MS || "180");
 
@@ -152,6 +169,26 @@ function shouldSkip(title) {
   return HARD_SKIP.some((entry) => title.startsWith(entry) || title.includes(entry));
 }
 
+function completionExclusion(title, kind, summary, categories) {
+  const titleReason = TITLE_EXCLUSIONS.get(title.toLowerCase());
+  if (titleReason) return titleReason;
+
+  const categoryText = categories.map((item) => item.category.replaceAll("_", " ")).join(" ");
+  const text = `${title}. ${summary}. ${categoryText}`;
+  for (const rule of COMPLETION_EXCLUSIONS) {
+    if (rule.pattern.test(text)) return rule.label;
+  }
+
+  if (kind === "item" && /\bcannot be obtained\b/i.test(text)) return "unreleased content";
+
+  const titleLower = title.toLowerCase();
+  const seasonalTitle = /\b(christmas|easter|halloween|thanksgiving|midsummer|birthday|anniversary)\b/.test(titleLower);
+  const seasonalContext = /\b(event|holiday|diango|toy box|costume room|limited|obtained|reward)\b/i.test(text);
+  if (seasonalTitle && seasonalContext) return "seasonal title";
+
+  return "";
+}
+
 function chunks(items, size) {
   const out = [];
   for (let index = 0; index < items.length; index += size) out.push(items.slice(index, index + size));
@@ -190,12 +227,14 @@ async function main() {
     const meta = byTitle.get(title);
     const kind = classify(title, meta.categories);
     const localLinks = (links.get(title) || []).filter((target) => titleSet.has(target));
+    const summary = extracts.get(title) || `OSRS Wiki page linked through ${meta.categories.map((item) => item.category.replaceAll("_", " ")).join(", ")}.`;
     return {
       id: idFor(title),
       title,
       kind,
       tier: tierFor(title, kind, meta.categories),
-      summary: extracts.get(title) || `OSRS Wiki page linked through ${meta.categories.map((item) => item.category.replaceAll("_", " ")).join(", ")}.`,
+      completion: "playable",
+      summary,
       url: `https://oldschool.runescape.wiki/w/${encodeURIComponent(title.replaceAll(" ", "_"))}`,
       categories: meta.categories.map((item) => item.category),
       links: localLinks.map(idFor),
@@ -204,24 +243,58 @@ async function main() {
     };
   });
 
-  const categories = {};
+  const playableTitleSet = new Set();
+  const excluded = [];
   for (const node of nodes) {
+    const meta = byTitle.get(node.title);
+    const reason = completionExclusion(node.title, node.kind, node.summary, meta.categories);
+    if (reason) {
+      excluded.push({
+        id: node.id,
+        title: node.title,
+        kind: node.kind,
+        reason,
+        url: node.url,
+        summary: node.summary.slice(0, 220)
+      });
+    } else {
+      playableTitleSet.add(node.title);
+    }
+  }
+
+  const titleById = new Map(titles.map((title) => [idFor(title), title]));
+  const playableNodes = nodes
+    .filter((node) => playableTitleSet.has(node.title))
+    .map((node) => ({
+      ...node,
+      links: node.links.filter((id) => {
+        const linkedTitle = titleById.get(id);
+        return linkedTitle ? playableTitleSet.has(linkedTitle) : false;
+      })
+    }));
+
+  const categories = {};
+  for (const node of playableNodes) {
     for (const category of node.categories) categories[category] = (categories[category] || 0) + 1;
   }
 
-  const edgeCount = nodes.reduce((sum, node) => sum + node.links.length, 0);
+  const edgeCount = playableNodes.reduce((sum, node) => sum + node.links.length, 0);
   const payload = {
     generatedAt: new Date().toISOString(),
     source: "https://oldschool.runescape.wiki MediaWiki API",
-    pageCount: nodes.length,
+    policy: "completion-safe-v1",
+    pageCount: playableNodes.length,
+    playableCount: playableNodes.length,
+    excludedCount: excluded.length,
     edgeCount,
     categories,
-    nodes
+    excluded,
+    nodes: playableNodes
   };
 
   await mkdir(path.dirname(OUT), { recursive: true });
   await writeFile(OUT, `${JSON.stringify(payload, null, 2)}\n`);
-  console.log(`Wrote ${nodes.length} pages and ${edgeCount} edges to ${OUT}`);
+  console.log(`Wrote ${playableNodes.length} playable pages, excluded ${excluded.length}, and kept ${edgeCount} edges to ${OUT}`);
 }
 
 main().catch((error) => {
