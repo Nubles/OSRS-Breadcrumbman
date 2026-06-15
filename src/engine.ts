@@ -29,23 +29,105 @@ export interface RunMilestone {
   tone: "gold" | "green" | "cyan" | "red" | "violet";
 }
 
+const dummyCompleted = Array.from({ length: 131 }, (_, i) => `dummy-${i + 1}`);
+const dummyRevealed = Array.from({ length: 280 }, (_, i) => `dummy-${i + 1}`);
+const dummyBreached = Array.from({ length: 10 }, (_, i) => `dummy-${i + 600}`);
+
 export const defaultState: RunState = {
   runName: "Breadcrumbman Atlas",
   ruleMode: "standard",
-  activeTab: "atlas",
   selectedNodeId: "lumbridge",
   goalNodeId: "completion-cape",
-  seedNodeId: undefined,
-  revealedNodeIds: [],
-  activeNodeIds: [],
-  completedNodeIds: [],
+  seedNodeId: "bwans",
+  revealedNodeIds: [
+    "doric-quest", "bwans", "varrock-medium-diary", "cooks-assistant", "recipe-disaster",
+    "lumbridge", "ernest-the-chicken", "the-restless-ghost", "completion-cape",
+    "plague-city", "underground-pass", "fight-arena", "priest-in-peril", "stronghold-security",
+    "fairy-tale-1", "imp-catcher", "animal-magnetism", "dragon-slayer-1", "monkey-madness-1",
+    "q-node-1", "q-node-2", "q-node-3", "q-node-4", "q-node-5", "q-node-6", "q-node-7",
+    "q-node-8", "q-node-9", "q-node-10", "q-node-11", "q-node-12", "q-node-13",
+    ...dummyRevealed
+  ],
+  activeNodeIds: [
+    "lumbridge", "ernest-the-chicken", "the-restless-ghost", "completion-cape",
+    "doric-quest", "varrock-medium-diary", "cooks-assistant", "fight-arena",
+    "priest-in-peril", "stronghold-security", "fairy-tale-1", "imp-catcher",
+    "animal-magnetism", "dragon-slayer-1", "monkey-madness-1"
+  ],
+  completedNodeIds: ["bwans", "recipe-disaster", ...dummyCompleted],
   blockedNodeIds: [],
-  breachedNodeIds: [],
-  rescueTokens: 1,
-  scholarFavour: 0,
-  hasSeenOnboarding: false,
-  events: [],
-  breaches: [],
+  breachedNodeIds: ["plague-city", "underground-pass", ...dummyBreached],
+  rescueTokens: 2,
+  scholarFavour: 64.2,
+  hasSeenOnboarding: true,
+  events: [
+    {
+      id: "event-1",
+      type: "reveal",
+      title: "Revealed",
+      detail: "Ernest the Chicken",
+      createdAt: Date.now() - 2 * 60 * 1000,
+      nodeId: "ernest-the-chicken"
+    },
+    {
+      id: "event-2",
+      type: "complete",
+      title: "Completed",
+      detail: "Cook's Assistant",
+      createdAt: Date.now() - 6 * 60 * 1000,
+      nodeId: "cooks-assistant"
+    },
+    {
+      id: "event-3",
+      type: "breach",
+      title: "Breach spawned at",
+      detail: "Plague City",
+      createdAt: Date.now() - 18 * 60 * 1000,
+      nodeId: "plague-city"
+    },
+    {
+      id: "event-4",
+      type: "rescue",
+      title: "Used Rescue on",
+      detail: "The Restless Ghost",
+      createdAt: Date.now() - 27 * 60 * 1000,
+      nodeId: "the-restless-ghost"
+    },
+    {
+      id: "event-5",
+      type: "reveal",
+      title: "Revealed",
+      detail: "Varrock Medium Diary",
+      createdAt: Date.now() - 34 * 60 * 1000,
+      nodeId: "varrock-medium-diary"
+    }
+  ],
+  breaches: [
+    {
+      id: "breach-1",
+      nodeId: "plague-city",
+      title: "Plague City",
+      penalty: "Spreading to 2 connected nodes",
+      resolved: false,
+      createdAt: Date.now() - 72 * 60 * 1000
+    },
+    {
+      id: "breach-2",
+      nodeId: "underground-pass",
+      title: "Underground Pass",
+      penalty: "Spreading to 1 connected node",
+      resolved: false,
+      createdAt: Date.now() - 167 * 60 * 1000
+    },
+    {
+      id: "breach-3",
+      nodeId: "fight-arena",
+      title: "Fight Arena",
+      penalty: "Stable",
+      resolved: false,
+      createdAt: Date.now() - 211 * 60 * 1000
+    }
+  ],
   backups: []
 };
 
@@ -61,26 +143,28 @@ export function hydrateState(input: Partial<RunState>): RunState {
   return {
     ...defaultState,
     ...input,
-    revealedNodeIds: Array.isArray(input.revealedNodeIds) ? input.revealedNodeIds : [],
-    activeNodeIds: Array.isArray(input.activeNodeIds) ? input.activeNodeIds : [],
-    completedNodeIds: Array.isArray(input.completedNodeIds) ? input.completedNodeIds : [],
-    blockedNodeIds: Array.isArray(input.blockedNodeIds) ? input.blockedNodeIds : [],
-    breachedNodeIds: Array.isArray(input.breachedNodeIds) ? input.breachedNodeIds : [],
-    events: Array.isArray(input.events) ? input.events : [],
-    breaches: Array.isArray(input.breaches) ? input.breaches : [],
+    revealedNodeIds: Array.isArray(input.revealedNodeIds) ? input.revealedNodeIds : defaultState.revealedNodeIds,
+    activeNodeIds: Array.isArray(input.activeNodeIds) ? input.activeNodeIds : defaultState.activeNodeIds,
+    completedNodeIds: Array.isArray(input.completedNodeIds) ? input.completedNodeIds : defaultState.completedNodeIds,
+    blockedNodeIds: Array.isArray(input.blockedNodeIds) ? input.blockedNodeIds : defaultState.blockedNodeIds,
+    breachedNodeIds: Array.isArray(input.breachedNodeIds) ? input.breachedNodeIds : defaultState.breachedNodeIds,
+    events: Array.isArray(input.events) ? input.events : defaultState.events,
+    breaches: Array.isArray(input.breaches) ? input.breaches : defaultState.breaches,
     backups: Array.isArray(input.backups) ? input.backups : []
   };
 }
 
 export function createStarterState(seedId = STARTER_SEEDS[0]): RunState {
   const seed = getNode(seedId) || getNode("lumbridge")!;
-  const starterReveal = revealFromNode(seed.id, defaultState, true);
+  const starterReveal = revealFromNode(seed.id, { ...defaultState, completedNodeIds: [], revealedNodeIds: [], activeNodeIds: [] }, true);
   return {
     ...defaultState,
     seedNodeId: seed.id,
     selectedNodeId: seed.id,
     revealedNodeIds: unique([seed.id, ...starterReveal.map((node) => node.id)]),
     activeNodeIds: [seed.id],
+    completedNodeIds: [],
+    breachedNodeIds: [],
     events: [
       createEvent({
         type: "seed",
@@ -99,13 +183,13 @@ export function createStarterState(seedId = STARTER_SEEDS[0]): RunState {
 }
 
 export function loadState(): RunState {
-  if (typeof window === "undefined") return createStarterState();
+  if (typeof window === "undefined") return defaultState;
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (!stored) return createStarterState();
+  if (!stored) return defaultState;
   try {
     return hydrateState(JSON.parse(stored));
   } catch {
-    return createStarterState();
+    return defaultState;
   }
 }
 

@@ -18,7 +18,6 @@ export type NodeKind =
 export type ProgressTier = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type NodeState = "hidden" | "revealed" | "active" | "complete" | "blocked" | "breached";
 export type RuleMode = "cozy" | "standard" | "strict" | "brutal";
-export type AppTab = "atlas" | "wiki" | "pathfinder" | "ledger" | "rules";
 
 export interface WikiGraphNode {
   id: string;
@@ -106,7 +105,6 @@ export interface BackupRecord {
 export interface RunState {
   runName: string;
   ruleMode: RuleMode;
-  activeTab: AppTab;
   selectedNodeId: string;
   goalNodeId: string;
   seedNodeId?: string;
