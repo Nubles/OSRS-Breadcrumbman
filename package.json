@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test:engine": "node scripts/run-engine-tests.mjs",
     "wiki:sync": "node scripts/sync-wiki-graph.mjs"
   },
   "dependencies": {

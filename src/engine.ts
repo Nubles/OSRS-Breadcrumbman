@@ -3,6 +3,32 @@ import { BreadcrumbEvent, GraphNode, NodeState, RunState } from "./types";
 
 const STORAGE_KEY = "breadcrumbman-atlas-v1";
 
+export type PressureLevel = "steady" | "watch" | "strained" | "critical";
+
+export interface FrontierPressure {
+  score: number;
+  level: PressureLevel;
+  openActive: number;
+  blocked: number;
+  breached: number;
+  hiddenFrontier: number;
+  deadEnds: number;
+  summary: string;
+}
+
+export interface ActionRecommendation {
+  node: GraphNode;
+  score: number;
+  reason: string;
+}
+
+export interface RunMilestone {
+  id: string;
+  label: string;
+  detail: string;
+  tone: "gold" | "green" | "cyan" | "red" | "violet";
+}
+
 export const defaultState: RunState = {
   runName: "Breadcrumbman Atlas",
   ruleMode: "standard",
@@ -184,6 +210,126 @@ export function recommendNext(state: RunState): GraphNode[] {
     .filter((node) => !completed.has(node!.id)) as GraphNode[];
 }
 
+export function analyzeFrontierPressure(state: RunState): FrontierPressure {
+  const completed = new Set(state.completedNodeIds);
+  const blocked = new Set(state.blockedNodeIds);
+  const breached = new Set(state.breachedNodeIds);
+  const visible = new Set([...state.revealedNodeIds, ...state.completedNodeIds, ...state.activeNodeIds]);
+  const activeNodes = state.activeNodeIds.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
+  const openActiveNodes = activeNodes.filter((node) => !completed.has(node.id) && !blocked.has(node.id) && !breached.has(node.id));
+  const hiddenFrontier = GRAPH_NODES.filter((node) => {
+    if (visible.has(node.id)) return false;
+    return node.links.some((link) => visible.has(link));
+  }).length;
+  const deadEnds = openActiveNodes.filter((node) => node.links.every((link) => visible.has(link))).length;
+  const mode = RULE_MODES[state.ruleMode];
+  const scarcity = Math.max(0, 7 - mode.revealCount) * 4 + Math.max(0, mode.rescueEvery - 5);
+  const score = clamp(
+    openActiveNodes.length * 7 +
+      state.blockedNodeIds.length * 12 +
+      state.breachedNodeIds.length * 14 +
+      deadEnds * 8 +
+      Math.max(0, 8 - hiddenFrontier) * 2 +
+      scarcity,
+    0,
+    100
+  );
+  const level: PressureLevel = score >= 72 ? "critical" : score >= 48 ? "strained" : score >= 28 ? "watch" : "steady";
+  const summary = `${openActiveNodes.length} open breadcrumb${openActiveNodes.length === 1 ? "" : "s"}, ${hiddenFrontier} hidden frontier ${hiddenFrontier === 1 ? "node" : "nodes"}, ${deadEnds} dead end${deadEnds === 1 ? "" : "s"}.`;
+  return {
+    score,
+    level,
+    openActive: openActiveNodes.length,
+    blocked: state.blockedNodeIds.length,
+    breached: state.breachedNodeIds.length,
+    hiddenFrontier,
+    deadEnds,
+    summary
+  };
+}
+
+export function recommendBestAction(state: RunState): ActionRecommendation | undefined {
+  const completed = new Set(state.completedNodeIds);
+  const blocked = new Set(state.blockedNodeIds);
+  const breached = new Set(state.breachedNodeIds);
+  const goalRoute = routeToGoal(state);
+  const goalIndex = new Map(goalRoute.map((node, index) => [node.id, index]));
+  const candidates = state.activeNodeIds
+    .map((id) => getNode(id))
+    .filter(Boolean)
+    .filter((node) => !completed.has(node!.id) && !blocked.has(node!.id) && !breached.has(node!.id)) as GraphNode[];
+
+  return candidates
+    .map((node) => {
+      const revealCount = revealFromNode(node.id, state).length;
+      const routeBonus = goalIndex.has(node.id) ? 24 - goalIndex.get(node.id)! * 2 : 0;
+      const seedBonus = node.id === state.seedNodeId ? 18 : 0;
+      const score = seedBonus + routeBonus + revealCount * 8 + node.links.length * 2 + Math.max(0, 6 - node.tier) * 3;
+      const reasonParts = [
+        node.id === state.seedNodeId ? "seed anchor" : "",
+        revealCount ? `reveals ${revealCount}` : "clears pressure",
+        goalIndex.has(node.id) ? "on goal route" : "",
+        `${node.links.length} linked pages`
+      ].filter(Boolean);
+      return { node, score, reason: reasonParts.join(" / ") };
+    })
+    .sort((a, b) => b.score - a.score || a.node.tier - b.node.tier || a.node.label.localeCompare(b.node.label))[0];
+}
+
+export function detectMilestones(state: RunState): RunMilestone[] {
+  const completedNodes = state.completedNodeIds.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
+  const milestones: RunMilestone[] = [];
+  if (completedNodes.length > 0) {
+    milestones.push({
+      id: "first-completion",
+      label: "First breadcrumb sealed",
+      detail: `${completedNodes[0].label} proved the run can move.`,
+      tone: "gold"
+    });
+  }
+  if (state.revealedNodeIds.length > 1) {
+    milestones.push({
+      id: "first-reveal",
+      label: "First reveal chain",
+      detail: `${state.revealedNodeIds.length} legal pages are visible.`,
+      tone: "cyan"
+    });
+  }
+  if (completedNodes.some((node) => node.kind === "transport")) {
+    milestones.push({
+      id: "first-transport",
+      label: "Movement web online",
+      detail: "A transport breadcrumb is complete.",
+      tone: "violet"
+    });
+  }
+  if (completedNodes.some((node) => node.kind === "boss")) {
+    milestones.push({
+      id: "first-boss",
+      label: "First boss branch",
+      detail: "PvM is part of the legal atlas now.",
+      tone: "red"
+    });
+  }
+  if (completedNodes.some((node) => node.tier >= 4)) {
+    milestones.push({
+      id: "tier-four-breakthrough",
+      label: "Kingdom web breached",
+      detail: "A tier 4+ breadcrumb is complete.",
+      tone: "green"
+    });
+  }
+  if (state.events.some((event) => event.type === "rescue")) {
+    milestones.push({
+      id: "first-rescue",
+      label: "Archive intervention",
+      detail: "A rescue changed the visible frontier.",
+      tone: "violet"
+    });
+  }
+  return milestones;
+}
+
 export function routeToGoal(state: RunState): GraphNode[] {
   const goal = getNode(state.goalNodeId);
   if (!goal) return [];
@@ -224,4 +370,8 @@ export function createBackup(state: RunState, label = "Manual backup") {
 
 export function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

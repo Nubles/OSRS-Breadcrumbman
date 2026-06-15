@@ -6,10 +6,13 @@ import {
   createEvent,
   createId,
   createStarterState,
+  analyzeFrontierPressure,
+  detectMilestones,
   graphStats,
   hydrateState,
   loadState,
   nodeState,
+  recommendBestAction,
   recommendNext,
   rescueReveal,
   routeToGoal,
@@ -81,6 +84,9 @@ function App() {
 
   const selectedNode = getNode(state.selectedNodeId) || getNode(state.seedNodeId) || GRAPH_NODES[0];
   const stats = graphStats(state);
+  const pressure = analyzeFrontierPressure(state);
+  const bestAction = recommendBestAction(state);
+  const milestones = detectMilestones(state);
   const recommendations = recommendNext(state);
   const route = routeToGoal(state);
   const visibleNodes = GRAPH_NODES.filter((node) => nodeState(node, state) !== "hidden");
@@ -130,6 +136,42 @@ function App() {
       selectedNodeId: nodeId,
       activeNodeIds: unique([...current.activeNodeIds, nodeId]),
       revealedNodeIds: unique([...current.revealedNodeIds, nodeId])
+    }));
+  }
+
+  function markBlocked(nodeId: string) {
+    const node = getNode(nodeId);
+    patchState((current) => ({
+      ...current,
+      blockedNodeIds: unique([...current.blockedNodeIds, nodeId]),
+      activeNodeIds: current.activeNodeIds.filter((id) => id !== nodeId),
+      events: [
+        createEvent({
+          type: "note",
+          title: `${node?.label || "Breadcrumb"} blocked`,
+          detail: "This node is temporarily out of the recommendation pool.",
+          nodeId
+        }),
+        ...current.events
+      ].slice(0, 120)
+    }));
+  }
+
+  function clearBlocked(nodeId: string) {
+    const node = getNode(nodeId);
+    patchState((current) => ({
+      ...current,
+      blockedNodeIds: current.blockedNodeIds.filter((id) => id !== nodeId),
+      activeNodeIds: unique([...current.activeNodeIds, nodeId]),
+      events: [
+        createEvent({
+          type: "note",
+          title: `${node?.label || "Breadcrumb"} reopened`,
+          detail: "This node is back on the active frontier.",
+          nodeId
+        }),
+        ...current.events
+      ].slice(0, 120)
     }));
   }
 
@@ -253,14 +295,173 @@ function App() {
 
   return (
     <div className="app-shell">
+      <header className="cockpit-topbar">
+        <div className="cockpit-brand">
+          <div className="brand-seal">BM</div>
+          <div>
+            <span>Breadcrumbman Atlas</span>
+            <strong>{RULE_MODES[state.ruleMode].label}</strong>
+          </div>
+        </div>
+        <nav className="cockpit-tabs" aria-label="Breadcrumbman sections">
+          {tabs.map((tab) => (
+            <button key={tab.id} className={state.activeTab === tab.id ? "active" : ""} onClick={() => patchState((current) => ({ ...current, activeTab: tab.id }))}>
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <section className="cockpit-resources">
+          <article><span>Done</span><strong>{stats.completed}/{stats.total}</strong></article>
+          <article><span>Shown</span><strong>{stats.revealed}</strong></article>
+          <article><span>Pressure</span><strong>{pressure.score}%</strong></article>
+          <article><span>Rescue</span><strong>{state.rescueTokens}</strong></article>
+        </section>
+        <div className="cockpit-actions">
+          <button onClick={backupNow}>Backup</button>
+          <button onClick={exportSave}>Export</button>
+          <button onClick={() => importRef.current?.click()}>Import</button>
+          <input ref={importRef} className="hidden-input" type="file" accept="application/json" onChange={importSave} />
+          <button className="danger" onClick={resetRun}>Reset</button>
+        </div>
+      </header>
+
+      <section className="cockpit-config">
+        <label>
+          <span>Run</span>
+          <input value={state.runName} onChange={(event) => patchState((current) => ({ ...current, runName: event.target.value }))} />
+        </label>
+        <label>
+          <span>Mode</span>
+          <select value={state.ruleMode} onChange={(event) => patchState((current) => ({ ...current, ruleMode: event.target.value as RuleMode }))}>
+            {Object.entries(RULE_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Goal</span>
+          <select value={state.goalNodeId} onChange={(event) => patchState((current) => ({ ...current, goalNodeId: event.target.value }))}>
+            {GRAPH_NODES.filter((node) => node.tier >= 4).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
+          </select>
+        </label>
+        <div className={`cockpit-pressure ${pressure.level}`}>
+          <div><span>Frontier Pressure</span><strong>{pressure.score}% / {pressure.level}</strong></div>
+          <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
+        </div>
+      </section>
+
+      {state.activeTab === "atlas" && (
+        <section className="mockup-cockpit">
+          <aside className="mission-rail">
+            <article className="mission-card primary-mission">
+              <p className="eyebrow">Do this next</p>
+              <h1>{bestAction?.node.label || "Pick an active breadcrumb"}</h1>
+              <p>{bestAction?.node.summary || "Complete visible nodes to grow the atlas and unlock richer routing advice."}</p>
+              <div className="next-meta">
+                <span>{bestAction ? KIND_LABELS[bestAction.node.kind] : "Atlas"}</span>
+                <span>{bestAction ? TIER_NAMES[bestAction.node.tier] : "Seed"}</span>
+                <span>{bestAction ? `${bestAction.score} value` : "0 value"}</span>
+              </div>
+              <button className="primary" disabled={!bestAction} onClick={() => bestAction && patchState((current) => ({ ...current, selectedNodeId: bestAction.node.id }))}>
+                Focus breadcrumb
+              </button>
+            </article>
+            <article className="mission-card">
+              <p className="eyebrow">Run Pulse</p>
+              <div className="pulse-list">
+                <div><span>Seed</span><strong>{getNode(state.seedNodeId)?.label || "Lumbridge"}</strong></div>
+                <div><span>Open</span><strong>{pressure.openActive}</strong></div>
+                <div><span>Blocked</span><strong>{pressure.blocked}</strong></div>
+                <div><span>Favour</span><strong>{state.scholarFavour}</strong></div>
+              </div>
+              <small>{pressure.summary}</small>
+            </article>
+            <article className="mission-card">
+              <p className="eyebrow">Milestones</p>
+              <div className="milestone-list">
+                {(milestones.length ? milestones : [{ id: "seed", label: "Choose a seed", detail: "The archive is waiting for its first proof.", tone: "gold" as const }]).slice(0, 5).map((milestone) => (
+                  <div key={milestone.id} className={`milestone ${milestone.tone}`}>
+                    <strong>{milestone.label}</strong>
+                    <small>{milestone.detail}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="mission-card">
+              <p className="eyebrow">Recent Reveals</p>
+              <div className="mini-feed">
+                {state.events.slice(0, 4).map((event) => (
+                  <div key={event.id}>
+                    <strong>{event.title}</strong>
+                    <small>{event.detail}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </aside>
+
+          <section className="atlas-command-deck">
+            <div className="deck-heading">
+              <div>
+                <p className="eyebrow">Live atlas</p>
+                <h2>Legal breadcrumb web</h2>
+              </div>
+              <div className="filter-row">
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search visible nodes" />
+                <select value={kindFilter} onChange={(event) => setKindFilter(event.target.value as NodeKind | "all")}>
+                  <option value="all">All types</option>
+                  {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="atlas-toolbar">
+              <article><span>Visible</span><strong>{visibleNodes.length}</strong></article>
+              <article><span>Filtered</span><strong>{filteredNodes.length}</strong></article>
+              <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
+              <article><span>Route</span><strong>{route.length}</strong></article>
+            </div>
+            <GraphCanvas state={state} nodes={filteredNodes} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
+          </section>
+
+          <aside className="inspector-stack">
+            <article className="mission-card route-card">
+              <p className="eyebrow">Route to {goalNode.label}</p>
+              <div className="mini-route">
+                {route.slice(0, 6).map((node, index) => (
+                  <button key={`${node.id}-${index}`} onClick={() => patchState((current) => ({ ...current, selectedNodeId: node.id }))}>
+                    <span>{index + 1}</span>
+                    <strong>{node.label}</strong>
+                  </button>
+                ))}
+              </div>
+            </article>
+            <NodeInspector
+              node={selectedNode}
+              state={state}
+              onComplete={completeSelected}
+              onActivate={markActive}
+              onBlock={() => markBlocked(selectedNode.id)}
+              onClearBlock={() => clearBlocked(selectedNode.id)}
+              onRescue={() => patchState(rescueReveal)}
+            />
+          </aside>
+        </section>
+      )}
+
       <section className="hero-dashboard">
         <div className="hero-copy">
-          <span className="atlas-mark">Wiki snowball mode</span>
+          <span className="atlas-mark">Command center</span>
           <h1>Breadcrumbman Atlas</h1>
-          <p>Start with a single OSRS page, reveal connected knowledge, and turn the entire wiki into a living progression web.</p>
+          <p>Run the OSRS Wiki as a living restriction map: complete legal pages, manage frontier pressure, and route from one tiny seed to account-defining goals.</p>
           <div className="hero-actions">
-            <button className="primary" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas" }))}>Open live atlas</button>
-            <button onClick={() => patchState((current) => ({ ...current, activeTab: "wiki" }))}>Search wiki graph</button>
+            <button className="primary" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas" }))}>Open Atlas</button>
+            <button onClick={() => bestAction && patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: bestAction.node.id }))}>Jump to next</button>
+          </div>
+          <div className={`pressure-meter ${pressure.level}`}>
+            <div>
+              <span>Frontier Pressure</span>
+              <strong>{pressure.score}% / {pressure.level}</strong>
+            </div>
+            <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
+            <small>{pressure.summary}</small>
           </div>
         </div>
         <div className="hero-orbit" aria-hidden="true">
@@ -273,10 +474,10 @@ function App() {
           <span className="orbit-line l3" />
         </div>
         <div className="hero-metrics">
-          <article><span>Campaign health</span><strong>{campaignHealth}%</strong></article>
-          <article><span>Next branch</span><strong>{nextBest?.label || "Choose seed"}</strong></article>
-          <article><span>Goal step</span><strong>{nearestGoalStep.label}</strong></article>
-          <article><span>Wiki layer</span><strong>{wikiGraph?.playableCount || wikiGraph?.pageCount || 0} pages</strong></article>
+          <article><span>Do this next</span><strong>{bestAction?.node.label || nextBest?.label || "Choose seed"}</strong><small>{bestAction?.reason || "Start the run to open recommendations."}</small></article>
+          <article><span>Rescue Tokens</span><strong>{state.rescueTokens}</strong><small>Emergency reveals for dead-end pressure.</small></article>
+          <article><span>Route Step</span><strong>{nearestGoalStep.label}</strong><small>{goalNode.label}</small></article>
+          <article><span>Run Health</span><strong>{campaignHealth}%</strong><small>{stats.completed}/{stats.total} atlas nodes complete.</small></article>
         </div>
       </section>
 
@@ -349,6 +550,55 @@ function App() {
         </article>
       </section>
 
+      <section className="command-grid">
+        <article className="next-card">
+          <p className="eyebrow">Do this next</p>
+          <h2>{bestAction?.node.label || "Pick an active breadcrumb"}</h2>
+          <p>{bestAction?.node.summary || "Complete visible nodes to grow the atlas and unlock richer routing advice."}</p>
+          <div className="next-meta">
+            <span>{bestAction ? KIND_LABELS[bestAction.node.kind] : "Atlas"}</span>
+            <span>{bestAction ? TIER_NAMES[bestAction.node.tier] : "Seed"}</span>
+            <span>{bestAction ? `${bestAction.score} value` : "0 value"}</span>
+          </div>
+          <button className="primary" disabled={!bestAction} onClick={() => bestAction && patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: bestAction.node.id }))}>
+            Focus breadcrumb
+          </button>
+        </article>
+        <article className="command-card">
+          <p className="eyebrow">Milestones</p>
+          <div className="milestone-list">
+            {(milestones.length ? milestones : [{ id: "seed", label: "Choose a seed", detail: "The archive is waiting for its first proof.", tone: "gold" as const }]).slice(0, 5).map((milestone) => (
+              <div key={milestone.id} className={`milestone ${milestone.tone}`}>
+                <strong>{milestone.label}</strong>
+                <small>{milestone.detail}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="command-card">
+          <p className="eyebrow">Route to {goalNode.label}</p>
+          <div className="mini-route">
+            {route.slice(0, 5).map((node, index) => (
+              <button key={`${node.id}-${index}`} onClick={() => patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: node.id }))}>
+                <span>{index + 1}</span>
+                <strong>{node.label}</strong>
+              </button>
+            ))}
+          </div>
+        </article>
+        <article className="command-card">
+          <p className="eyebrow">Recent reveals</p>
+          <div className="mini-feed">
+            {state.events.slice(0, 4).map((event) => (
+              <div key={event.id}>
+                <strong>{event.title}</strong>
+                <small>{event.detail}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+
       <nav className="tab-bar" aria-label="Breadcrumbman sections">
         {tabs.map((tab) => (
           <button key={tab.id} className={state.activeTab === tab.id ? "active" : ""} onClick={() => patchState((current) => ({ ...current, activeTab: tab.id }))}>
@@ -389,6 +639,8 @@ function App() {
               state={state}
               onComplete={completeSelected}
               onActivate={markActive}
+              onBlock={() => markBlocked(selectedNode.id)}
+              onClearBlock={() => clearBlocked(selectedNode.id)}
               onRescue={() => patchState(rescueReveal)}
             />
           </section>
@@ -634,8 +886,8 @@ function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; onSelect: (id
           const status = nodeState(node, state);
           return (
             <g key={node.id} className={`graph-node ${status}`} onClick={() => onSelect(node.id)} tabIndex={0} role="button">
-              <circle cx={node.x} cy={node.y} r={status === "complete" ? 1.65 : 1.35} fill={nodeKindColor(node.kind)} />
-              <circle cx={node.x} cy={node.y} r={status === "active" ? 2.7 : 2.25} />
+              <circle cx={node.x} cy={node.y} r={status === "complete" ? 2.25 : 1.85} fill={nodeKindColor(node.kind)} />
+              <circle cx={node.x} cy={node.y} r={status === "active" ? 3.85 : 3.15} />
               <text x={node.x + 2.2} y={node.y + 0.45}>{node.label}</text>
             </g>
           );
@@ -650,9 +902,11 @@ function NodeInspector(props: {
   state: RunState;
   onComplete: () => void;
   onActivate: (nodeId: string) => void;
+  onBlock: () => void;
+  onClearBlock: () => void;
   onRescue: () => void;
 }) {
-  const { node, state, onComplete, onActivate, onRescue } = props;
+  const { node, state, onComplete, onActivate, onBlock, onClearBlock, onRescue } = props;
   const status = nodeState(node, state);
   const linked = node.links.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
   return (
@@ -693,6 +947,7 @@ function NodeInspector(props: {
       </section>
       <div className="action-row">
         <button className="primary" disabled={status === "complete" || status === "hidden"} onClick={onComplete}>Complete node</button>
+        {status === "blocked" ? <button onClick={onClearBlock}>Reopen</button> : <button disabled={status === "complete" || status === "hidden"} onClick={onBlock}>Block</button>}
         <button disabled={state.rescueTokens <= 0} onClick={onRescue}>Use rescue</button>
       </div>
     </aside>
