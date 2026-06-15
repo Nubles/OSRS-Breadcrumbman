@@ -19,110 +19,275 @@ import {
   saveState,
   unique
 } from "./engine";
-import { AppTab, BreachRecord, GraphNode, NodeKind, RuleMode, RunState } from "./types";
-import type { WikiGraphData, WikiGraphNode } from "./types";
-
-const tabs: { id: AppTab; label: string; caption: string }[] = [
-  { id: "atlas", label: "Atlas", caption: "Reveal and complete nodes" },
-  { id: "wiki", label: "Wiki Graph", caption: "Search synced OSRS pages" },
-  { id: "pathfinder", label: "Pathfinder", caption: "Plan routes to goals" },
-  { id: "ledger", label: "Ledger", caption: "Archive, breaches, saves" },
-  { id: "rules", label: "Rules", caption: "Mode variants and codex" }
-];
-
-const onboarding = [
-  {
-    title: "The Wiki Becomes The Map",
-    detail: "Breadcrumbman starts from one tiny legal page and grows outward through connected OSRS concepts: quests, items, monsters, shops, regions, transport, bosses, diaries, skills, clues, and raids."
-  },
-  {
-    title: "Every Node Is A Permission",
-    detail: "A revealed node is legal to pursue. Complete it, prove the tasks, and the atlas reveals more breadcrumbs from that page."
-  },
-  {
-    title: "Snowball From Seed To Spine",
-    detail: "The graph begins with Lumbridge-scale content and grows through transport keystones, questlines, Slayer, clues, bosses, raids, and endgame capstones."
-  },
-  {
-    title: "Dead Ends Are Part Of The Story",
-    detail: "If the web gets tight, rescue tokens reveal nearby branches. Strict modes make those rescues rarer and breaches more painful."
-  }
-];
+import { BreachRecord, GraphNode, NodeKind, RuleMode, RunState } from "./types";
 
 function formatDate(value: number): string {
   return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
     hour: "2-digit",
     minute: "2-digit"
   }).format(value);
 }
 
+// Custom SVG Icons
+function CoinsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="#d9a84f">
+      <ellipse cx="12" cy="6" rx="6" ry="2" />
+      <path d="M6 6v4c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6" />
+      <path d="M6 10v4c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-4" />
+      <path d="M6 14v4c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-4" />
+    </svg>
+  );
+}
+
+function LampIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="#62bfd6" stroke="#111" strokeWidth="1">
+      <path d="M12 2C9 2 7 4 7 7c0 3 2.5 5 2.5 7h5c0-2 2.5-4 2.5-7 0-3-2-5-5-5z" />
+      <rect x="9.5" y="14" width="5" height="2" rx="0.5" fill="#a17be8" />
+      <path d="M8 17h8v3H8z" fill="#d9a84f" />
+    </svg>
+  );
+}
+
+function TeleportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#a98be4" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" strokeDasharray="3,3" />
+      <circle cx="12" cy="12" r="6" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
+function RelicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="#d95c50">
+      <path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-1 9H7V9h10v2zm0 4H7v-2h10v2z" />
+    </svg>
+  );
+}
+
+function DefaultPacketIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="#ece7db">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
+function getPacketIcon(type: string) {
+  switch (type) {
+    case "coins": return <CoinsIcon />;
+    case "lamp": return <LampIcon />;
+    case "teleport": return <TeleportIcon />;
+    case "relic": return <RelicIcon />;
+    default: return <DefaultPacketIcon />;
+  }
+}
+
 function App() {
   const [state, setState] = useState<RunState>(() => loadState());
-  const [onboardingStep, setOnboardingStep] = useState(0);
-  const [query, setQuery] = useState("");
-  const [wikiQuery, setWikiQuery] = useState("");
-  const [wikiKindFilter, setWikiKindFilter] = useState<NodeKind | "all">("all");
-  const [selectedWikiId, setSelectedWikiId] = useState("");
-  const [wikiGraph, setWikiGraph] = useState<WikiGraphData | null>(null);
-  const [kindFilter, setKindFilter] = useState<NodeKind | "all">("all");
-  const [breachDraft, setBreachDraft] = useState({ title: "", penalty: "", nodeId: "" });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<NodeKind | "all">("all");
+  const [selectedRegion, setSelectedRegion] = useState("all");
+  const [showCompleted, setShowCompleted] = useState(true);
+  const [showBreached, setShowBreached] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showBreachModal, setShowBreachModal] = useState(false);
+  
+  const [runRules, setRunRules] = useState<{ name: string; enabled: boolean }[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("breadcrumbman-run-rules");
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {}
+      }
+    }
+    return [
+      { name: "No Trading", enabled: false },
+      { name: "No GE", enabled: false },
+      { name: "No Grand Exchange", enabled: false },
+      { name: "No Treasure Trails", enabled: false },
+      { name: "No Minigames (Except...", enabled: false },
+      { name: "No Slayer Unlocks", enabled: false },
+      { name: "No PvP", enabled: false },
+      { name: "Ironman Mode", enabled: true }
+    ];
+  });
+
+  const [customRules, setCustomRules] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem("breadcrumbman-custom-rules") || "";
+    }
+    return "";
+  });
+
+  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean[]>>(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("breadcrumbman-checked-tasks");
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {}
+      }
+    }
+    return {};
+  });
+
+  const [timeText, setTimeText] = useState("Just now");
+  const [lastSaved, setLastSaved] = useState<number>(Date.now());
+
   const importRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => saveState(state), [state]);
+  // Save state and update lastSaved timestamp
   useEffect(() => {
-    fetch(`${BASE_URL}wiki-graph.json`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: WikiGraphData | null) => {
-        if (!data || !Array.isArray(data.nodes)) return;
-        setWikiGraph(data);
-        setSelectedWikiId(data.nodes[0]?.id || "");
-      })
-      .catch(() => undefined);
-  }, []);
+    saveState(state);
+    setLastSaved(Date.now());
+  }, [state]);
 
-  const selectedNode = getNode(state.selectedNodeId) || getNode(state.seedNodeId) || GRAPH_NODES[0];
+  // Persist runRules
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("breadcrumbman-run-rules", JSON.stringify(runRules));
+    }
+  }, [runRules]);
+
+  // Persist customRules
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("breadcrumbman-custom-rules", customRules);
+    }
+  }, [customRules]);
+
+  // Persist checkedTasks
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("breadcrumbman-checked-tasks", JSON.stringify(checkedTasks));
+    }
+  }, [checkedTasks]);
+
+  // Dynamically updating relative time clock for Last Save
+  useEffect(() => {
+    function getRelativeTime(timestamp: number): string {
+      const diffMs = Date.now() - timestamp;
+      const diffSec = Math.floor(diffMs / 1000);
+      if (diffSec < 5) return "Just now";
+      if (diffSec < 60) return `${diffSec}s ago`;
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      return `${diffHr}h ago`;
+    }
+    const update = () => {
+      setTimeText(getRelativeTime(lastSaved));
+    };
+    update();
+    const interval = setInterval(update, 5000);
+    return () => clearInterval(interval);
+  }, [lastSaved]);
+
+  // Compute stats
   const stats = graphStats(state);
   const pressure = analyzeFrontierPressure(state);
   const bestAction = recommendBestAction(state);
   const milestones = detectMilestones(state);
-  const recommendations = recommendNext(state);
   const route = routeToGoal(state);
-  const visibleNodes = GRAPH_NODES.filter((node) => nodeState(node, state) !== "hidden");
-  const filteredNodes = visibleNodes.filter((node) => {
-    const haystack = `${node.label} ${node.kind} ${node.region} ${node.summary} ${node.tags.join(" ")}`.toLowerCase();
-    return haystack.includes(query.toLowerCase()) && (kindFilter === "all" || node.kind === kindFilter);
-  });
-  const completedNodes = state.completedNodeIds.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
-  const goalNode = getNode(state.goalNodeId) || getNode("completion-cape")!;
-  const wikiNodes = wikiGraph?.nodes || [];
-  const excludedWikiPages = wikiGraph?.excluded || [];
-  const completionPolicyLabel = wikiGraph?.policy === "completion-safe-v1" ? "Completable" : "Legacy";
-  const wikiNodeMap = useMemo(() => new Map(wikiNodes.map((node) => [node.id, node])), [wikiNodes]);
-  const selectedWikiNode = wikiNodeMap.get(selectedWikiId) || wikiNodes[0];
-  const kindCounts = useMemo(() => {
-    const counts = new Map<NodeKind, number>();
-    for (const node of wikiNodes) counts.set(node.kind, (counts.get(node.kind) || 0) + 1);
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [wikiNodes]);
-  const campaignHealth = Math.min(100, Math.round((stats.completed * 4 + stats.revealed * 1.4 + state.rescueTokens * 6 + stats.maxTier * 8) / 2));
-  const nextBest = recommendations.slice().sort((a, b) => a.tier - b.tier || b.links.length - a.links.length)[0];
-  const nearestGoalStep = route.find((node) => !state.completedNodeIds.includes(node.id)) || goalNode;
-  const filteredWikiNodes = wikiNodes
-    .filter((node) => {
-      const haystack = `${node.title} ${node.kind} ${node.summary} ${node.categories.join(" ")}`.toLowerCase();
-      return haystack.includes(wikiQuery.toLowerCase()) && (wikiKindFilter === "all" || node.kind === wikiKindFilter);
-    })
-    .sort((a, b) => b.inbound + b.outbound - (a.inbound + a.outbound))
-    .slice(0, 300);
+
+  const selectedNode = getNode(state.selectedNodeId) || getNode("lumbridge")!;
+  const linkedNodes = selectedNode.links.map(id => getNode(id)).filter(Boolean) as GraphNode[];
+
+  const discoveredCount = state.revealedNodeIds.length;
+  const totalProgressPercent = ((discoveredCount / stats.total) * 100).toFixed(1);
+
+  // Dynamic requirements based on checkboxes
+  const requirementsList = useMemo(() => {
+    const checks = checkedTasks[selectedNode.id] || [];
+    const checkedCount = checks.filter(Boolean).length;
+    const totalCount = selectedNode.tasks.length;
+    const allMet = checkedCount === totalCount;
+
+    if (selectedNode.id === "lumbridge") {
+      return [
+        { label: "Attack", met: true, isCheck: true },
+        { label: "Quests", met: true, isCheck: true },
+        { label: "Tasks", met: allMet, value: `${checkedCount} / ${totalCount}` }
+      ];
+    }
+    if (selectedNode.id === "recipe-disaster") {
+      return [
+        { label: "Cooking (70)", met: true, isCheck: true },
+        { label: "Quest Points (175)", met: true, isCheck: true },
+        { label: "Tasks", met: allMet, value: `${checkedCount} / ${totalCount}` }
+      ];
+    }
+    return [
+      { label: "Prerequisites met", met: true, isCheck: true },
+      { label: "Tasks", met: allMet, value: `${checkedCount} / ${totalCount}` }
+    ];
+  }, [selectedNode.id, selectedNode.tasks, checkedTasks]);
+
+  const nodeProgressPercent = useMemo(() => {
+    const tasks = selectedNode.tasks || [];
+    if (tasks.length === 0) return 100;
+    const checks = checkedTasks[selectedNode.id] || [];
+    const checkedCount = checks.filter(Boolean).length;
+    return Math.round((checkedCount / tasks.length) * 100);
+  }, [selectedNode, checkedTasks]);
+
+  const allTasksDone = useMemo(() => {
+    const tasks = selectedNode.tasks || [];
+    if (tasks.length === 0) return true;
+    const checks = checkedTasks[selectedNode.id] || [];
+    return tasks.every((_, idx) => !!checks[idx]);
+  }, [selectedNode.id, selectedNode.tasks, checkedTasks]);
+
+  const completionPacketList = useMemo(() => {
+    if (selectedNode.id === "lumbridge") {
+      return [
+        { label: "2,500 Coins", type: "coins" },
+        { label: "2,000 XP Lamp", type: "lamp" },
+        { label: "1x Teleport", type: "teleport" },
+        { label: "Diary Relic", type: "relic" }
+      ];
+    }
+    if (selectedNode.id === "recipe-disaster") {
+      return [
+        { label: "Barrows Gloves", type: "relic" },
+        { label: "20,000 Coins", type: "coins" },
+        { label: "XP Lamp", type: "lamp" }
+      ];
+    }
+    return [
+      { label: "1,000 Coins", type: "coins" },
+      { label: "500 XP Lamp", type: "lamp" }
+    ];
+  }, [selectedNode.id]);
+
+  const visibleNodes = useMemo(() => {
+    return GRAPH_NODES.filter((node) => {
+      if (node.tags.includes("dummy")) return false;
+      const status = nodeState(node, state);
+      if (status === "hidden") return false;
+      if (status === "complete" && !showCompleted) return false;
+      if (status === "breached" && !showBreached) return false;
+
+      if (selectedType !== "all" && node.kind !== selectedType) return false;
+      if (selectedRegion !== "all" && node.region !== selectedRegion) return false;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return node.label.toLowerCase().includes(q) || node.summary.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [state, showCompleted, showBreached, selectedType, selectedRegion, searchQuery]);
 
   function patchState(updater: (current: RunState) => RunState) {
     setState((current) => updater(current));
-  }
-
-  function chooseSeed(seedId: string) {
-    setState(createStarterState(seedId));
   }
 
   function completeSelected() {
@@ -130,90 +295,88 @@ function App() {
     patchState((current) => completeNode(current, selectedNode.id));
   }
 
-  function markActive(nodeId: string) {
-    patchState((current) => ({
-      ...current,
-      selectedNodeId: nodeId,
-      activeNodeIds: unique([...current.activeNodeIds, nodeId]),
-      revealedNodeIds: unique([...current.revealedNodeIds, nodeId])
-    }));
+  function useRescue() {
+    if (state.rescueTokens <= 0) return;
+    patchState(rescueReveal);
   }
 
-  function markBlocked(nodeId: string) {
-    const node = getNode(nodeId);
-    patchState((current) => ({
-      ...current,
-      blockedNodeIds: unique([...current.blockedNodeIds, nodeId]),
-      activeNodeIds: current.activeNodeIds.filter((id) => id !== nodeId),
-      events: [
-        createEvent({
-          type: "note",
-          title: `${node?.label || "Breadcrumb"} blocked`,
-          detail: "This node is temporarily out of the recommendation pool.",
-          nodeId
-        }),
-        ...current.events
-      ].slice(0, 120)
-    }));
+  function toggleRule(index: number) {
+    setRunRules(current => current.map((rule, idx) => idx === index ? { ...rule, enabled: !rule.enabled } : rule));
   }
 
-  function clearBlocked(nodeId: string) {
-    const node = getNode(nodeId);
-    patchState((current) => ({
-      ...current,
-      blockedNodeIds: current.blockedNodeIds.filter((id) => id !== nodeId),
-      activeNodeIds: unique([...current.activeNodeIds, nodeId]),
-      events: [
-        createEvent({
-          type: "note",
-          title: `${node?.label || "Breadcrumb"} reopened`,
-          detail: "This node is back on the active frontier.",
-          nodeId
-        }),
-        ...current.events
-      ].slice(0, 120)
-    }));
+  function toggleTaskChecked(nodeId: string, idx: number) {
+    setCheckedTasks((current) => {
+      const currentChecks = current[nodeId] ? [...current[nodeId]] : [];
+      while (currentChecks.length <= idx) {
+        currentChecks.push(false);
+      }
+      currentChecks[idx] = !currentChecks[idx];
+      return {
+        ...current,
+        [nodeId]: currentChecks
+      };
+    });
   }
 
-  function addBreach() {
-    if (!breachDraft.title.trim()) return;
-    const related = breachDraft.nodeId || selectedNode.id;
-    const breach: BreachRecord = {
+  function addBreach(title: string, nodeId: string | undefined, penalty: string) {
+    const newBreach: BreachRecord = {
       id: createId("breach"),
-      nodeId: related,
-      title: breachDraft.title,
-      penalty: breachDraft.penalty || "Complete one adjacent legal breadcrumb before continuing this branch.",
+      nodeId: nodeId || undefined,
+      title: title || (nodeId ? (getNode(nodeId)?.label || "Unknown Node") : "General Breach"),
+      penalty,
       resolved: false,
       createdAt: Date.now()
     };
-    patchState((current) => ({
-      ...current,
-      breachedNodeIds: unique([...current.breachedNodeIds, related]),
-      breaches: [breach, ...current.breaches],
-      events: [
-        createEvent({
-          type: "breach",
-          title: "Breach recorded",
-          detail: `${breach.title}: ${breach.penalty}`,
-          nodeId: related
-        }),
-        ...current.events
-      ]
-    }));
-    setBreachDraft({ title: "", penalty: "", nodeId: "" });
+    
+    patchState((current) => {
+      const nextBreaches = [newBreach, ...current.breaches];
+      const nextBreachedNodes = nodeId 
+        ? unique([...current.breachedNodeIds, nodeId]) 
+        : current.breachedNodeIds;
+      
+      const newEv = createEvent({
+        type: "breach",
+        title: "Breach spawned at",
+        detail: newBreach.title,
+        nodeId: nodeId
+      });
+      
+      return {
+        ...current,
+        breaches: nextBreaches,
+        breachedNodeIds: nextBreachedNodes,
+        events: [newEv, ...current.events].slice(0, 120)
+      };
+    });
   }
 
-  function resolveBreach(id: string) {
-    patchState((current) => ({
-      ...current,
-      breaches: current.breaches.map((breach) =>
-        breach.id === id ? { ...breach, resolved: true, resolvedAt: Date.now() } : breach
-      )
-    }));
-  }
-
-  function backupNow() {
-    patchState((current) => ({ ...current, backups: [createBackup(current), ...current.backups].slice(0, 8) }));
+  function resolveBreach(breachId: string) {
+    patchState((current) => {
+      const breach = current.breaches.find((b) => b.id === breachId);
+      if (!breach) return current;
+      
+      const nextBreaches = current.breaches.map((b) => 
+        b.id === breachId ? { ...b, resolved: true, resolvedAt: Date.now() } : b
+      );
+      
+      const nextBreachedNodes = breach.nodeId
+        ? current.breachedNodeIds.filter((id) => id !== breach.nodeId)
+        : current.breachedNodeIds;
+        
+      const newEv = createEvent({
+        type: "rescue",
+        title: "Breach resolved",
+        detail: breach.title,
+        nodeId: breach.nodeId
+      });
+      
+      return {
+        ...current,
+        breaches: nextBreaches,
+        breachedNodeIds: nextBreachedNodes,
+        events: [newEv, ...current.events].slice(0, 120)
+      };
+    });
   }
 
   function exportSave() {
@@ -233,915 +396,1152 @@ function App() {
     reader.onload = () => {
       try {
         const imported = hydrateState(JSON.parse(String(reader.result)));
-        setState({ ...imported, backups: [createBackup(state, "Before import"), ...state.backups].slice(0, 8) });
+        setState(imported);
       } catch {
-        window.alert("That Breadcrumbman save could not be imported.");
+        window.alert("Save import failed.");
       }
     };
     reader.readAsText(file);
     event.target.value = "";
   }
 
-  function restoreBackup(snapshot: string) {
-    const restored = hydrateState(JSON.parse(snapshot));
-    setState({ ...restored, backups: state.backups });
-  }
-
-  function resetRun() {
-    const confirmed = window.confirm("Reset Breadcrumbman and keep a backup of this atlas?");
-    if (!confirmed) return;
-    setState((current) => ({ ...createStarterState(current.seedNodeId || "lumbridge"), backups: [createBackup(current, "Before reset"), ...current.backups].slice(0, 8) }));
-  }
-
-  if (!state.hasSeenOnboarding) {
-    const step = onboarding[onboardingStep];
-    return (
-      <main className="onboarding">
-        <section className="onboarding-card">
-          <div className="atlas-hero">
-            <div className="hero-node main">Lumbridge</div>
-            <div className="hero-node n1">Goblin</div>
-            <div className="hero-node n2">Cook's Assistant</div>
-            <div className="hero-node n3">Fairy rings</div>
-            <div className="hero-node n4">Raids</div>
-          </div>
-          <div>
-            <p className="eyebrow">Breadcrumbman briefing {onboardingStep + 1}/4</p>
-            <h1>{step.title}</h1>
-            <p className="lead">{step.detail}</p>
-            <div className="seed-strip">
-              {STARTER_SEEDS.map((seed) => {
-                const node = getNode(seed)!;
-                return <button key={seed} onClick={() => chooseSeed(seed)}>{node.label}</button>;
-              })}
-            </div>
-            <div className="onboarding-actions">
-              <button disabled={onboardingStep === 0} onClick={() => setOnboardingStep((value) => Math.max(0, value - 1))}>
-                Back
-              </button>
-              {onboardingStep < onboarding.length - 1 ? (
-                <button className="primary" onClick={() => setOnboardingStep((value) => value + 1)}>Next page</button>
-              ) : (
-                <button className="primary" onClick={() => patchState((current) => ({ ...current, hasSeenOnboarding: true }))}>
-                  Open Atlas
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <div className="app-shell">
+      {/* Top Cockpit Header */}
       <header className="cockpit-topbar">
         <div className="cockpit-brand">
-          <div className="brand-seal">BM</div>
+          {/* OSRS Golden Compass Seal */}
+          <div className="brand-seal">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="#d9a84f">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5V13h3.5v-2H13V7.5h-2V11H7.5v2H11v3.5z" />
+            </svg>
+          </div>
           <div>
             <span>Breadcrumbman Atlas</span>
-            <strong>{RULE_MODES[state.ruleMode].label}</strong>
+            <strong>OSRS Wiki-Graph Progression Mode</strong>
           </div>
         </div>
-        <nav className="cockpit-tabs" aria-label="Breadcrumbman sections">
-          {tabs.map((tab) => (
-            <button key={tab.id} className={state.activeTab === tab.id ? "active" : ""} onClick={() => patchState((current) => ({ ...current, activeTab: tab.id }))}>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+
+        {/* Header Metrics */}
         <section className="cockpit-resources">
-          <article><span>Total Progress</span><strong>{stats.percent}%</strong><div className="mini-meter"><i style={{ width: `${stats.percent}%` }} /></div></article>
-          <article><span>Nodes Discovered</span><strong>{stats.revealed} / {stats.total}</strong></article>
-          <article><span>Completed</span><strong>{stats.completed}</strong></article>
-          <article><span>Breached</span><strong>{state.breachedNodeIds.length}</strong></article>
-          <article><span>Rescue Tokens</span><strong>{state.rescueTokens} / 3</strong></article>
-          <article><span>Scholar Favour</span><strong>{state.scholarFavour}%</strong></article>
+          <article className="metric-box progress-box">
+            <span>Total Progress</span>
+            <div className="progress-value-row">
+              <CoinsIcon />
+              <strong>{totalProgressPercent}%</strong>
+            </div>
+            <div className="header-progress-track">
+              <div className="header-progress-fill" style={{ width: `${totalProgressPercent}%` }} />
+            </div>
+          </article>
+          
+          <article className="metric-box">
+            <span>Nodes Discovered</span>
+            <div className="metric-content">
+              <span className="metric-icon">📖</span>
+              <strong>{discoveredCount} / {stats.total}</strong>
+            </div>
+          </article>
+          
+          <article className="metric-box">
+            <span>Completed</span>
+            <div className="metric-content">
+              <span className="metric-icon text-green">✓</span>
+              <strong>{state.completedNodeIds.length}</strong>
+            </div>
+          </article>
+
+          <article className="metric-box">
+            <span>Breached</span>
+            <div className="metric-content">
+              <span className="metric-icon text-red">⚔</span>
+              <strong>{state.breachedNodeIds.length}</strong>
+            </div>
+          </article>
+
+          <article className="metric-box">
+            <span>Rescue Tokens</span>
+            <div className="metric-content">
+              <span className="metric-icon text-cyan">⭕</span>
+              <strong>{state.rescueTokens} / 3</strong>
+            </div>
+          </article>
+
+          <article className="metric-box">
+            <span>Scholar Favour</span>
+            <div className="metric-content">
+              <span className="metric-icon text-purple">✦</span>
+              <strong>{state.scholarFavour.toFixed(1)}%</strong>
+            </div>
+          </article>
+
+          <div className="header-save-section">
+            <span className="save-time">
+              <span className="clock-icon">🕒</span> Last Save <strong className="time-val">{timeText}</strong>
+            </span>
+            <button className="settings-gear" onClick={() => setShowGuide(true)} style={{ gap: "4px", padding: "0 8px", fontSize: "0.8rem", display: "flex", alignItems: "center" }}>📖 Guide</button>
+            <button className="settings-gear" onClick={() => setShowSettings(!showSettings)}>⚙</button>
+          </div>
         </section>
-        <div className="cockpit-actions">
-          <button onClick={backupNow}>Backup</button>
-          <button onClick={exportSave}>Export</button>
-          <button onClick={() => importRef.current?.click()}>Import</button>
-          <input ref={importRef} className="hidden-input" type="file" accept="application/json" onChange={importSave} />
-          <button className="danger" onClick={resetRun}>Reset</button>
-        </div>
       </header>
 
-      {state.activeTab !== "atlas" && (
-        <section className="cockpit-config">
-          <label>
-            <span>Run</span>
-            <input value={state.runName} onChange={(event) => patchState((current) => ({ ...current, runName: event.target.value }))} />
-          </label>
-          <label>
-            <span>Mode</span>
-            <select value={state.ruleMode} onChange={(event) => patchState((current) => ({ ...current, ruleMode: event.target.value as RuleMode }))}>
-              {Object.entries(RULE_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Goal</span>
-            <select value={state.goalNodeId} onChange={(event) => patchState((current) => ({ ...current, goalNodeId: event.target.value }))}>
-              {GRAPH_NODES.filter((node) => node.tier >= 4).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
-            </select>
-          </label>
-          <div className={`cockpit-pressure ${pressure.level}`}>
-            <div><span>Frontier Pressure</span><strong>{pressure.score}% / {pressure.level}</strong></div>
-            <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
-          </div>
-        </section>
-      )}
-
-      {state.activeTab === "atlas" && (
-        <>
-        <section className="mockup-cockpit">
-          <aside className="mission-rail">
-            <article className="mission-card primary-mission">
-              <p className="eyebrow">Do this next</p>
-              <h1>{bestAction?.node.label || "Pick an active breadcrumb"}</h1>
-              <p>{bestAction?.node.summary || "Complete visible nodes to grow the atlas and unlock richer routing advice."}</p>
-              <div className="mission-why">
-                <span>Why?</span>
-                <strong>Opens: {bestAction?.node.links.length || 0} nodes</strong>
-                <strong>Leads to: {goalNode.label}</strong>
-              </div>
-              <div className="next-meta">
-                <span>{bestAction ? KIND_LABELS[bestAction.node.kind] : "Atlas"}</span>
-                <span>{bestAction ? TIER_NAMES[bestAction.node.tier] : "Seed"}</span>
-                <span>{bestAction ? `${bestAction.score} value` : "0 value"}</span>
-              </div>
-              <div className="effort-row">
-                <span>Estimated Effort</span>
-                <strong><i /> Medium (20-30m)</strong>
-              </div>
-              <button className="primary" disabled={!bestAction} onClick={() => bestAction && patchState((current) => ({ ...current, selectedNodeId: bestAction.node.id }))}>
-                Route to Completion Cape
-              </button>
-            </article>
-            <article className="mission-card">
-              <div className="panel-title-row"><p className="eyebrow">Frontier Pressure</p><strong>{pressure.score} / 100</strong></div>
-              <h3 className={`pressure-word ${pressure.level}`}>{pressure.level === "steady" ? "Steady" : pressure.level}</h3>
-              <div className="pressure-ticks" aria-hidden="true">
-                {Array.from({ length: 24 }).map((_, index) => <span key={index} className={index < Math.round(pressure.score / 100 * 24) ? "lit" : ""} />)}
-              </div>
-              <small>{pressure.summary}</small>
-              <div className="pressure-effects">
-                <div><span>Breaches Spread</span><strong>+{Math.max(8, pressure.breached * 7)}%</strong></div>
-                <div><span>Reveal Cost</span><strong>+{Math.max(4, pressure.hiddenFrontier)}%</strong></div>
-                <div><span>Rescue Cooldown</span><strong>+{Math.max(0, pressure.deadEnds * 6)}%</strong></div>
-              </div>
-            </article>
-            <article className="mission-card">
-              <div className="panel-title-row"><p className="eyebrow">Rescue Tokens</p><strong>{state.rescueTokens} / 3</strong></div>
-              <div className="rescue-token-row" aria-hidden="true">
-                {[0, 1, 2].map((token) => <span key={token} className={token < state.rescueTokens ? "charged" : ""} />)}
-              </div>
-              <small>Next token in: 2h 17m</small>
-            </article>
-            <article className="mission-card favour-card">
-              <div className="panel-title-row"><p className="eyebrow">Scholar Favour</p><strong>{state.scholarFavour}%</strong></div>
-              <div className="favour-track"><span style={{ width: `${state.scholarFavour}%` }} /></div>
-              <small>Next reward @ 75% <strong>Reveal Discount II</strong></small>
-            </article>
-            <article className="mission-card">
-              <p className="eyebrow">Milestones</p>
-              <div className="milestone-list">
-                {(milestones.length ? milestones : [{ id: "seed", label: "Choose a seed", detail: "The archive is waiting for its first proof.", tone: "gold" as const }]).slice(0, 5).map((milestone) => (
-                  <div key={milestone.id} className={`milestone ${milestone.tone}`}>
-                    <strong>{milestone.label}</strong>
-                    <small>{milestone.detail}</small>
-                  </div>
-                ))}
-              </div>
-            </article>
-            <article className="mission-card">
-              <p className="eyebrow">Recent Reveals</p>
-              <div className="mini-feed">
-                {state.events.slice(0, 4).map((event) => (
-                  <div key={event.id}>
-                    <strong>{event.title}</strong>
-                    <small>{event.detail}</small>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </aside>
-
-          <section className="atlas-command-deck">
-            <div className="deck-heading">
-              <div>
-                <p className="eyebrow">Live Atlas</p>
-                <h2>Breadcrumbman Atlas</h2>
-              </div>
-              <div className="filter-row">
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search nodes..." />
-                <button type="button">Filters</button>
-                <select value={kindFilter} onChange={(event) => setKindFilter(event.target.value as NodeKind | "all")}>
-                  <option value="all">All types</option>
-                  {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
-                </select>
-                <label className="toggle-chip"><input type="checkbox" defaultChecked /> Show Completed</label>
-                <label className="toggle-chip"><input type="checkbox" defaultChecked /> Show Breached</label>
-              </div>
-            </div>
-            <div className="atlas-toolbar atlas-stats">
-              <article><span>Visible</span><strong>{visibleNodes.length}</strong></article>
-              <article><span>Filtered</span><strong>{filteredNodes.length}</strong></article>
-              <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
-              <article><span>Route</span><strong>{route.length}</strong></article>
-            </div>
-            <GraphCanvas state={state} nodes={GRAPH_NODES} route={route} selectedNodeId={selectedNode.id} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
-          </section>
-
-          <aside className="inspector-stack">
-            <article className="mission-card route-card">
-              <p className="eyebrow">Route to {goalNode.label}</p>
-              <div className="mini-route">
-                {route.slice(0, 6).map((node, index) => (
-                  <button key={`${node.id}-${index}`} onClick={() => patchState((current) => ({ ...current, selectedNodeId: node.id }))}>
-                    <span>{index + 1}</span>
-                    <strong>{node.label}</strong>
-                  </button>
-                ))}
-              </div>
-            </article>
-            <NodeInspector
-              node={selectedNode}
-              state={state}
-              onComplete={completeSelected}
-              onActivate={markActive}
-              onBlock={() => markBlocked(selectedNode.id)}
-              onClearBlock={() => clearBlocked(selectedNode.id)}
-              onRescue={() => patchState(rescueReveal)}
-            />
-          </aside>
-        </section>
-        <section className="mockup-bottom-row">
-          <article className="mission-card">
-            <p className="eyebrow">Recent Reveal Events</p>
-            <div className="event-ledger">
-              {state.events.slice(0, 5).map((event, index) => (
-                <div key={event.id}>
-                  <span>{index === 0 ? "2m ago" : `${6 + index * 9}m ago`}</span>
-                  <strong>{event.title}</strong>
-                  <small>{event.detail}</small>
-                </div>
-              ))}
-            </div>
-          </article>
-          <article className="mission-card breach-ledger">
-            <p className="eyebrow">Breach Ledger</p>
-            {(state.breaches.length ? state.breaches : [
-              { id: "plague-city", title: "Plague City", penalty: "Spreading to 2 connected nodes", resolved: false },
-              { id: "underground-pass", title: "Underground Pass", penalty: "Spreading to 1 connected node", resolved: false },
-              { id: "fight-arena", title: "Fight Arena", penalty: "Stable", resolved: true }
-            ]).slice(0, 3).map((breach, index) => (
-              <div key={breach.id} className={breach.resolved ? "stable" : ""}>
-                <strong>{breach.title}</strong>
-                <small>{breach.penalty}</small>
-                <span>{index + 1}h {index * 35 + 12}m</span>
-              </div>
-            ))}
-          </article>
-          <article className="mission-card run-rules-card">
-            <div className="panel-title-row"><p className="eyebrow">Run Rules</p><button type="button">Edit</button></div>
-            <div className="rules-mini-grid">
-              {["No Trading", "No Minigames (Except legal)", "No GE", "No Slayer Unlocks", "No PvP", "Ironman Mode"].map((rule, index) => (
-                <div key={rule}><span>{rule}</span><strong>{index === 5 ? "Enabled" : "Disabled"}</strong></div>
-              ))}
-            </div>
-          </article>
-        </section>
-        </>
-      )}
-
-      <section className="hero-dashboard">
-        <div className="hero-copy">
-          <span className="atlas-mark">Command center</span>
-          <h1>Breadcrumbman Atlas</h1>
-          <p>Run the OSRS Wiki as a living restriction map: complete legal pages, manage frontier pressure, and route from one tiny seed to account-defining goals.</p>
-          <div className="hero-actions">
-            <button className="primary" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas" }))}>Open Atlas</button>
-            <button onClick={() => bestAction && patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: bestAction.node.id }))}>Jump to next</button>
-          </div>
-          <div className={`pressure-meter ${pressure.level}`}>
+      {/* Settings Panel Toggle */}
+      {showSettings && (
+        <section className="settings-dropdown" style={{ display: "flex", flexWrap: "wrap", gap: "24px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
             <div>
-              <span>Frontier Pressure</span>
-              <strong>{pressure.score}% / {pressure.level}</strong>
+              <h3 style={{ fontSize: "0.8rem", color: "var(--gold)", textTransform: "uppercase", marginBottom: "6px", letterSpacing: "0.05em" }}>Rule Mode</h3>
+              <select
+                value={state.ruleMode}
+                onChange={(e) => patchState(current => ({ ...current, ruleMode: e.target.value as RuleMode }))}
+                style={{
+                  background: "#1b1915",
+                  border: "1px solid var(--border)",
+                  borderRadius: "4px",
+                  padding: "6px 12px",
+                  color: "var(--text)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                  outline: "none"
+                }}
+              >
+                <option value="cozy">Cozy Scholar</option>
+                <option value="standard">Standard</option>
+                <option value="strict">Strict Archivist</option>
+                <option value="brutal">Brutal Manuscript</option>
+              </select>
             </div>
-            <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
-            <small>{pressure.summary}</small>
+            <div style={{ fontSize: "0.75rem", color: "var(--muted)", maxWidth: "300px", marginTop: "16px" }}>
+              {RULE_MODES[state.ruleMode].description}
+            </div>
           </div>
-        </div>
-        <div className="hero-orbit" aria-hidden="true">
-          <span className="orbit-node seed">Seed</span>
-          <span className="orbit-node quest">Quest</span>
-          <span className="orbit-node boss">Boss</span>
-          <span className="orbit-node raid">Raid</span>
-          <span className="orbit-line l1" />
-          <span className="orbit-line l2" />
-          <span className="orbit-line l3" />
-        </div>
-        <div className="hero-metrics">
-          <article><span>Do this next</span><strong>{bestAction?.node.label || nextBest?.label || "Choose seed"}</strong><small>{bestAction?.reason || "Start the run to open recommendations."}</small></article>
-          <article><span>Rescue Tokens</span><strong>{state.rescueTokens}</strong><small>Emergency reveals for dead-end pressure.</small></article>
-          <article><span>Route Step</span><strong>{nearestGoalStep.label}</strong><small>{goalNode.label}</small></article>
-          <article><span>Run Health</span><strong>{campaignHealth}%</strong><small>{stats.completed}/{stats.total} atlas nodes complete.</small></article>
-        </div>
-      </section>
-
-      <header className="command-header">
-        <div className="brand-lockup">
-          <div className="brand-seal">BM</div>
           <div>
-            <h1>Breadcrumbman Atlas</h1>
-            <p>The OSRS Wiki as a snowballing progression web, from one tiny seed to endgame capstones.</p>
-          </div>
-        </div>
-        <section className="resource-bar">
-          <article><span>Completed</span><strong>{stats.completed}/{stats.total}</strong></article>
-          <article><span>Revealed</span><strong>{stats.revealed}</strong></article>
-          <article><span>Tier</span><strong>{TIER_NAMES[stats.maxTier as keyof typeof TIER_NAMES]}</strong></article>
-          <article><span>Rescues</span><strong>{state.rescueTokens}</strong></article>
-        </section>
-        <div className="save-actions">
-          <button onClick={backupNow}>Backup</button>
-          <button onClick={exportSave}>Export</button>
-          <button onClick={() => importRef.current?.click()}>Import</button>
-          <input ref={importRef} className="hidden-input" type="file" accept="application/json" onChange={importSave} />
-          <button className="danger" onClick={resetRun}>Reset</button>
-        </div>
-      </header>
-
-      <section className="progress-ribbon">
-        <div>
-          <span>Run</span>
-          <input value={state.runName} onChange={(event) => patchState((current) => ({ ...current, runName: event.target.value }))} />
-        </div>
-        <div>
-          <span>Rule mode</span>
-          <select value={state.ruleMode} onChange={(event) => patchState((current) => ({ ...current, ruleMode: event.target.value as RuleMode }))}>
-            {Object.entries(RULE_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <span>Goal</span>
-          <select value={state.goalNodeId} onChange={(event) => patchState((current) => ({ ...current, goalNodeId: event.target.value }))}>
-            {GRAPH_NODES.filter((node) => node.tier >= 4).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <span>Atlas completion</span>
-          <strong>{stats.percent}%</strong>
-        </div>
-      </section>
-
-      <section className="insight-strip">
-        <article>
-          <span>Current seed</span>
-          <strong>{getNode(state.seedNodeId)?.label || "Lumbridge"}</strong>
-          <small>The root of this account's legal knowledge web.</small>
-        </article>
-        <article>
-          <span>Frontier pressure</span>
-          <strong>{state.activeNodeIds.filter((id) => !state.completedNodeIds.includes(id)).length} open</strong>
-          <small>Active breadcrumbs waiting to be completed.</small>
-        </article>
-        <article>
-          <span>Scholar favour</span>
-          <strong>{state.scholarFavour}</strong>
-          <small>Earned by completing higher-tier pages.</small>
-        </article>
-        <article>
-          <span>Wiki density</span>
-          <strong>{wikiGraph ? Math.round(wikiGraph.edgeCount / Math.max(1, wikiGraph.playableCount || wikiGraph.pageCount)) : 0}/page</strong>
-          <small>Average synced links per wiki page.</small>
-        </article>
-      </section>
-
-      <section className="command-grid">
-        <article className="next-card">
-          <p className="eyebrow">Do this next</p>
-          <h2>{bestAction?.node.label || "Pick an active breadcrumb"}</h2>
-          <p>{bestAction?.node.summary || "Complete visible nodes to grow the atlas and unlock richer routing advice."}</p>
-          <div className="next-meta">
-            <span>{bestAction ? KIND_LABELS[bestAction.node.kind] : "Atlas"}</span>
-            <span>{bestAction ? TIER_NAMES[bestAction.node.tier] : "Seed"}</span>
-            <span>{bestAction ? `${bestAction.score} value` : "0 value"}</span>
-          </div>
-          <button className="primary" disabled={!bestAction} onClick={() => bestAction && patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: bestAction.node.id }))}>
-            Focus breadcrumb
-          </button>
-        </article>
-        <article className="command-card">
-          <p className="eyebrow">Milestones</p>
-          <div className="milestone-list">
-            {(milestones.length ? milestones : [{ id: "seed", label: "Choose a seed", detail: "The archive is waiting for its first proof.", tone: "gold" as const }]).slice(0, 5).map((milestone) => (
-              <div key={milestone.id} className={`milestone ${milestone.tone}`}>
-                <strong>{milestone.label}</strong>
-                <small>{milestone.detail}</small>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="command-card">
-          <p className="eyebrow">Route to {goalNode.label}</p>
-          <div className="mini-route">
-            {route.slice(0, 5).map((node, index) => (
-              <button key={`${node.id}-${index}`} onClick={() => patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: node.id }))}>
-                <span>{index + 1}</span>
-                <strong>{node.label}</strong>
-              </button>
-            ))}
-          </div>
-        </article>
-        <article className="command-card">
-          <p className="eyebrow">Recent reveals</p>
-          <div className="mini-feed">
-            {state.events.slice(0, 4).map((event) => (
-              <div key={event.id}>
-                <strong>{event.title}</strong>
-                <small>{event.detail}</small>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <nav className="tab-bar" aria-label="Breadcrumbman sections">
-        {tabs.map((tab) => (
-          <button key={tab.id} className={state.activeTab === tab.id ? "active" : ""} onClick={() => patchState((current) => ({ ...current, activeTab: tab.id }))}>
-            <span>{tab.label}</span>
-            <small>{tab.caption}</small>
-          </button>
-        ))}
-      </nav>
-
-      <main>
-        {state.activeTab === "atlas" && (
-          <section className="atlas-layout">
-            <div className="atlas-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Live atlas</p>
-                  <h2>Legal breadcrumb web</h2>
-                  <p>Complete active nodes to reveal more wiki-style branches. Hidden nodes stay off-limits.</p>
-                </div>
-                <div className="filter-row">
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search visible nodes" />
-                  <select value={kindFilter} onChange={(event) => setKindFilter(event.target.value as NodeKind | "all")}>
-                    <option value="all">All types</option>
-                    {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="atlas-toolbar">
-                <article><span>Visible</span><strong>{visibleNodes.length}</strong></article>
-                <article><span>Filtered</span><strong>{filteredNodes.length}</strong></article>
-                <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
-                <article><span>Mode</span><strong>{RULE_MODES[state.ruleMode].label}</strong></article>
-              </div>
-              <GraphCanvas state={state} nodes={filteredNodes} route={route} selectedNodeId={selectedNode.id} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
+            <h3 style={{ fontSize: "0.8rem", color: "var(--gold)", textTransform: "uppercase", marginBottom: "6px", letterSpacing: "0.05em" }}>Save & Recovery</h3>
+            <div className="settings-actions">
+              <button onClick={() => patchState(current => ({ ...current, backups: [createBackup(current), ...current.backups].slice(0, 5) }))}>Backup</button>
+              <button onClick={exportSave}>Export Save</button>
+              <button onClick={() => importRef.current?.click()}>Import Save</button>
+              <input ref={importRef} className="hidden" type="file" accept="application/json" onChange={importSave} />
+              <button className="danger" onClick={() => { if (window.confirm("Reset run?")) setState(createStarterState()); }}>Reset Run</button>
             </div>
-            <NodeInspector
-              node={selectedNode}
-              state={state}
-              onComplete={completeSelected}
-              onActivate={markActive}
-              onBlock={() => markBlocked(selectedNode.id)}
-              onClearBlock={() => clearBlocked(selectedNode.id)}
-              onRescue={() => patchState(rescueReveal)}
-            />
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {state.activeTab === "wiki" && (
-          <section className="wiki-layout">
-            <article className="panel wiki-command">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Synced wiki layer</p>
-                  <h2>OSRS Wiki graph foundation</h2>
-                  <p>The generated layer only keeps pages that can be completed on a fresh account today. Holiday, limited, discontinued, and event-only pages are kept out of the playable graph.</p>
+      {/* 3-Column Workspace Layout */}
+      <div className="dashboard-grid">
+        
+        {/* Left Column */}
+        <aside className="left-sidebar">
+          {/* Do This Next Panel */}
+          <article className="sidebar-card do-this-next">
+            <p className="sidebar-eyebrow">Do this next</p>
+            <div className="do-this-next-header">
+              <div className="node-kind-badge bg-diary">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z" />
+                </svg>
+              </div>
+              <div className="do-this-next-title">
+                <h3>{bestAction?.node.label || "Lumbridge Hard Diary"}</h3>
+                <span className="node-type-label">(Task)</span>
+              </div>
+              <span className="badge-legal">Legal</span>
+            </div>
+            
+            <div className="do-this-next-body">
+              <div className="detail-row">
+                <span className="label">Why?</span>
+                <span className="value">Opens 6 nodes</span>
+              </div>
+              <div className="detail-row">
+                <span className="label">Leads to:</span>
+                <span className="value text-purple clickable" onClick={() => patchState(c => ({ ...c, selectedNodeId: "recipe-disaster" }))}>Recipe for Disaster</span>
+              </div>
+
+              <div className="requirements-summary">
+                <span className="req-header">Requirements</span>
+                <div className="req-badges">
+                  <span className="req-badge met">✓ 41 Quests</span>
+                  <span className="req-badge">15 Tasks</span>
                 </div>
               </div>
-              <div className="completion-banner">
-                <div>
-                  <span>Completable filter</span>
-                  <strong>{completionPolicyLabel}</strong>
+
+              <div className="effort-meter">
+                <div className="effort-labels">
+                  <span>Estimated Effort</span>
+                  <strong>Medium (20-30m)</strong>
                 </div>
-                <p>{excludedWikiPages.length} risky wiki pages are excluded from progression so no run depends on old events, unobtainable rewards, or limited-time content.</p>
+                <div className="effort-bar-track">
+                  <div className="effort-bar-fill" style={{ width: "50%" }} />
+                </div>
               </div>
-              <div className="wiki-stats">
-                <article><span>Playable</span><strong>{wikiGraph?.playableCount || wikiGraph?.pageCount || 0}</strong></article>
-                <article><span>Excluded</span><strong>{wikiGraph?.excludedCount || excludedWikiPages.length}</strong></article>
-                <article><span>Links</span><strong>{wikiGraph?.edgeCount || 0}</strong></article>
-                <article><span>Generated</span><strong>{wikiGraph?.generatedAt === "not-synced" ? "Pending" : "Synced"}</strong></article>
+
+              <button className="btn-route-cape" onClick={() => patchState(c => ({ ...c, selectedNodeId: "completion-cape" }))}>
+                Route to Completion Cape <span>›</span>
+              </button>
+            </div>
+          </article>
+
+          {/* Frontier Pressure Panel */}
+          <article className="sidebar-card pressure-panel">
+            <div className="sidebar-header-row">
+              <h3>Frontier Pressure</h3>
+              <span className="help-icon">?</span>
+              <strong className="pressure-value text-red">{pressure.level.toUpperCase()} {pressure.score}/100</strong>
+            </div>
+            
+            <div className="pressure-meter-segmented">
+              {Array.from({ length: 20 }).map((_, idx) => {
+                const step = idx * 5;
+                let colorClass = "green";
+                if (step >= 45 && step < 70) colorClass = "orange";
+                if (step >= 70) colorClass = "red";
+                const active = pressure.score >= step;
+                return (
+                  <span key={idx} className={`segment ${colorClass} ${active ? "active" : ""}`} />
+                );
+              })}
+            </div>
+            <p className="pressure-desc">Breaches grow faster at high pressure.</p>
+            
+            <div className="pressure-effects">
+              <span className="effects-title">Pressure Effects</span>
+              <div className="effect-item">
+                <span className="bullet text-red">✦</span>
+                <span className="effect-name">Breaches Spread</span>
+                <span className="effect-val text-red">+{Math.round(pressure.score * 0.4)}%</span>
               </div>
-              <div className="kind-spectrum">
-                {kindCounts.slice(0, 10).map(([kind, count]) => (
-                  <button key={kind} onClick={() => setWikiKindFilter(kind)}>
-                    <span style={{ background: nodeKindColor(kind), width: `${Math.max(16, Math.min(100, count / Math.max(1, wikiNodes.length) * 280))}%` }} />
-                    <strong>{KIND_LABELS[kind]}</strong>
-                    <small>{count}</small>
-                  </button>
+              <div className="effect-item">
+                <span className="bullet text-purple">✦</span>
+                <span className="effect-name">Reveal Cost</span>
+                <span className="effect-val text-red">+{Math.round(pressure.score * 0.25)}%</span>
+              </div>
+              <div className="effect-item">
+                <span className="bullet text-cyan">✦</span>
+                <span className="effect-name">Rescue Cooldown</span>
+                <span className="effect-val text-red">+{Math.round(pressure.score * 0.15)}%</span>
+              </div>
+            </div>
+          </article>
+
+          {/* Rescue Tokens Panel */}
+          <article className="sidebar-card tokens-panel">
+            <div className="sidebar-header-row">
+              <h3>Rescue Tokens</h3>
+              <strong className="token-ratio">{state.rescueTokens} / 3</strong>
+            </div>
+            <div className="token-slots-row">
+              {Array.from({ length: 3 }).map((_, idx) => {
+                const active = state.rescueTokens > idx;
+                return (
+                  <div key={idx} className={`token-slot ${active ? "filled" : ""}`}>
+                    {active && <div className="token-inner" />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="token-timer">
+              <span>🕒</span> Next token in: <strong>{RULE_MODES[state.ruleMode].rescueEvery - (state.completedNodeIds.length % RULE_MODES[state.ruleMode].rescueEvery)} completions</strong>
+            </div>
+          </article>
+
+          {/* Scholar Favour Panel */}
+          <article className="sidebar-card favour-panel">
+            <div className="sidebar-header-row">
+              <h3>Scholar Favour</h3>
+              <strong className="favour-val">{state.scholarFavour.toFixed(1)}%</strong>
+            </div>
+            <div className="favour-slider-wrap">
+              <div className="favour-track">
+                <div className="favour-fill" style={{ width: `${state.scholarFavour}%` }} />
+                <div className="favour-thumb" style={{ left: `${state.scholarFavour}%` }} />
+              </div>
+              <div className="favour-ticks">
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
+              </div>
+            </div>
+            <div className="favour-reward">
+              <span className="reward-icon">✦</span> Next Reward @ 75%: <strong className="text-purple">Reveal Discount II</strong>
+            </div>
+          </article>
+
+          {/* Milestones Panel */}
+          <article className="sidebar-card milestones-panel">
+            <h3>Milestones</h3>
+            <div className="milestones-list">
+              <div className={`milestone-item ${parseFloat(totalProgressPercent) >= 25 ? "met" : ""}`}>
+                <span className="badge-pct">25%</span>
+                <span className="milestone-name">Novice Cartographer</span>
+                <span className="status-icon">{parseFloat(totalProgressPercent) >= 25 ? <span className="text-green">✓</span> : "🔒"}</span>
+              </div>
+              <div className={`milestone-item ${parseFloat(totalProgressPercent) >= 50 ? "met" : ""}`}>
+                <span className="badge-pct">50%</span>
+                <span className="milestone-name">Atlas Adept</span>
+                <span className="status-icon">{parseFloat(totalProgressPercent) >= 50 ? <span className="text-green">✓</span> : "🔒"}</span>
+              </div>
+              <div className={`milestone-item ${parseFloat(totalProgressPercent) >= 75 ? "met" : ""}`}>
+                <span className="badge-pct">75%</span>
+                <span className="milestone-name">Scholar's Ally</span>
+                <span className="status-icon">{parseFloat(totalProgressPercent) >= 75 ? <span className="text-green">✓</span> : "🔒"}</span>
+              </div>
+              <div className={`milestone-item ${parseFloat(totalProgressPercent) >= 100 ? "met" : ""}`}>
+                <span className="badge-pct">100%</span>
+                <span className="milestone-name">Completion Cape</span>
+                <span className="status-icon">{parseFloat(totalProgressPercent) >= 100 ? <span className="text-green">✓</span> : "🔒"}</span>
+              </div>
+            </div>
+          </article>
+        </aside>
+
+        {/* Center Column (Graph Area) */}
+        <section className="center-column">
+          {/* Search and Filters Bar */}
+          <div className="filters-bar">
+            <div className="search-input-wrap">
+              <span className="search-icon">🔍</span>
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search nodes..."
+              />
+            </div>
+            
+            <button className="btn-filter" onClick={() => setShowSettings(!showSettings)}>
+              <span className="icon">☰</span> Filters
+            </button>
+
+            <select value={selectedType} onChange={e => setSelectedType(e.target.value as NodeKind | "all")}>
+              <option value="all">All Types</option>
+              {Object.entries(KIND_LABELS).map(([k, label]) => (
+                <option key={k} value={k}>{label}</option>
+              ))}
+            </select>
+
+            <select value={selectedRegion} onChange={e => setSelectedRegion(e.target.value)}>
+              <option value="all">All Regions</option>
+              <option value="Misthalin">Misthalin</option>
+              <option value="Asgarnia">Asgarnia</option>
+              <option value="Kandarin">Kandarin</option>
+              <option value="Morytania">Morytania</option>
+              <option value="Global">Global</option>
+            </select>
+
+            <label className="checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={showCompleted}
+                onChange={e => setShowCompleted(e.target.checked)}
+              />
+              <span className="checkbox-custom" />
+              Show Completed
+            </label>
+
+            <label className="checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={showBreached}
+                onChange={e => setShowBreached(e.target.checked)}
+              />
+              <span className="checkbox-custom" />
+              Show Breached
+            </label>
+
+            <button className="btn-fullscreen">⛶</button>
+          </div>
+
+          {/* SVG Map Canvas */}
+          <GraphCanvas
+            state={state}
+            nodes={visibleNodes}
+            route={route}
+            onSelect={id => patchState(c => ({ ...c, selectedNodeId: id }))}
+          />
+        </section>
+
+        {/* Right Column (Inspector) */}
+        <aside className="right-sidebar">
+          <article className="sidebar-card inspector-panel">
+            <p className="sidebar-eyebrow">Selected Node</p>
+            
+            <div className="inspector-node-header">
+              <div className="node-kind-badge bg-diary">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z" />
+                </svg>
+              </div>
+              <div className="inspector-node-title">
+                <h2>{selectedNode.label} {state.goalNodeId === selectedNode.id && <span style={{ color: "var(--gold)" }}>⭐</span>}</h2>
+                <div className="badge-row">
+                  <span className="badge-type">(Task)</span>
+                  <span className="badge-status-glow legal">Legal</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="inspector-body">
+              <div className="section-title">Description</div>
+              <p className="node-desc-text">{selectedNode.summary}</p>
+
+              <div className="unlock-leads-row">
+                <div className="stat-card">
+                  <span className="icon">📖</span>
+                  <div>
+                    <span>Unlocks</span>
+                    <strong>{selectedNode.unlocks.length} nodes</strong>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <span className="icon">➔</span>
+                  <div>
+                    <span>Leads to</span>
+                    <strong className="text-purple">Recipe for Disaster</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="section-title">Requirements</div>
+              <div className="reqs-checklist">
+                {requirementsList.map((req, idx) => (
+                  <div key={idx} className="req-check-row">
+                    <span className={`check-indicator ${req.met ? "met" : ""}`}>
+                      {req.met ? "✓" : "○"}
+                    </span>
+                    <span className="req-label">{req.label}</span>
+                    {req.value && <strong className="req-val">{req.value}</strong>}
+                  </div>
                 ))}
               </div>
-              <div className="filter-row">
-                <input value={wikiQuery} onChange={(event) => setWikiQuery(event.target.value)} placeholder="Search wiki pages, categories, summaries" />
-                <select value={wikiKindFilter} onChange={(event) => setWikiKindFilter(event.target.value as NodeKind | "all")}>
-                  <option value="all">All wiki types</option>
-                  {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
-                </select>
+
+              <div className="section-title">Tasks Checklist</div>
+              <div className="tasks-checklist">
+                {selectedNode.tasks.map((task, idx) => {
+                  const isChecked = !!checkedTasks[selectedNode.id]?.[idx];
+                  return (
+                    <label key={idx} className={`task-check-row ${isChecked ? "checked" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleTaskChecked(selectedNode.id, idx)}
+                      />
+                      <span className="task-checkbox-custom" />
+                      <span className="task-label">{task}</span>
+                    </label>
+                  );
+                })}
               </div>
-              <div className="wiki-results">
-                {filteredWikiNodes.map((node) => (
-                  <button key={node.id} className={selectedWikiNode?.id === node.id ? "selected" : ""} onClick={() => setSelectedWikiId(node.id)}>
-                    <span style={{ color: nodeKindColor(node.kind) }}>{KIND_LABELS[node.kind]}</span>
-                    <strong>{node.title}</strong>
-                    <small>{node.inbound} in / {node.outbound} out / Tier {node.tier}</small>
-                  </button>
+
+              <div className="inspector-progress">
+                <div className="progress-label-row">
+                  <span>Progress</span>
+                  <strong>{nodeProgressPercent}%</strong>
+                </div>
+                <div className="progress-bar-track">
+                  <div className="progress-bar-fill" style={{ width: `${nodeProgressPercent}%` }} />
+                </div>
+              </div>
+
+              <div className="section-title">Completion Packet</div>
+              <div className="packet-grid">
+                {completionPacketList.map((item, idx) => (
+                  <div key={idx} className="packet-cell">
+                    {getPacketIcon(item.type)}
+                    <span className="packet-item-label">{item.label}</span>
+                  </div>
                 ))}
               </div>
-              <div className="excluded-drawer">
-                <div className="mini-heading">
-                  <span>Excluded from progression</span>
-                  <strong>{excludedWikiPages.length}</strong>
+
+              <div className="inspector-actions" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+                  <button
+                    className="btn-complete-node"
+                    disabled={nodeState(selectedNode, state) === "complete" || !allTasksDone}
+                    onClick={completeSelected}
+                    style={{ flex: 1.5 }}
+                  >
+                    Complete Node <span>✓</span>
+                  </button>
+                  <button
+                    className="btn-use-rescue"
+                    disabled={state.rescueTokens <= 0}
+                    onClick={useRescue}
+                    style={{ flex: 1 }}
+                  >
+                    Use Rescue <span className="rescue-subtext">({state.rescueTokens} tokens)</span>
+                  </button>
                 </div>
-                <div>
-                  {excludedWikiPages.slice(0, 18).map((page) => (
-                    <a key={page.id} href={page.url} target="_blank" rel="noreferrer">
-                      <span>{page.reason}</span>
-                      <strong>{page.title}</strong>
-                    </a>
+                <button
+                  className="btn-target-goal"
+                  disabled={state.goalNodeId === selectedNode.id}
+                  onClick={() => patchState(c => ({ ...c, goalNodeId: selectedNode.id }))}
+                  style={{
+                    background: state.goalNodeId === selectedNode.id ? "rgba(217, 168, 79, 0.1)" : "rgba(255, 255, 255, 0.03)",
+                    border: state.goalNodeId === selectedNode.id ? "1.5px solid var(--gold)" : "1px solid var(--border)",
+                    borderRadius: "4px",
+                    color: state.goalNodeId === selectedNode.id ? "var(--gold)" : "var(--text)",
+                    fontWeight: 700,
+                    padding: "8px",
+                    cursor: state.goalNodeId === selectedNode.id ? "default" : "pointer",
+                    fontSize: "0.78rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                    width: "100%",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {state.goalNodeId === selectedNode.id ? "⭐ Current Goal Node" : "🎯 Target as Goal Node"}
+                </button>
+              </div>
+
+              <div className="section-title">Linked Nodes ({linkedNodes.length})</div>
+              <div className="linked-grid-list">
+                {linkedNodes.map(link => {
+                  const status = nodeState(link, state);
+                  return (
+                    <button
+                      key={link.id}
+                      className={`linked-node-card status-${status}`}
+                      onClick={() => patchState(c => ({ ...c, selectedNodeId: link.id }))}
+                    >
+                      <div className="link-bullet" style={{ background: nodeKindColor(link.kind) }} />
+                      <div className="link-info">
+                        <strong>{link.label}</strong>
+                        <span>({KIND_LABELS[link.kind]})</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </article>
+        </aside>
+      </div>
+
+      {/* Bottom Row Dashboard Panel */}
+      <footer className="bottom-dashboard">
+        {/* Recent Reveal Events */}
+        <section className="bottom-card events-feed-card">
+          <h3>Recent Reveal Events</h3>
+          <div className="bottom-feed-list">
+            {state.events.slice(0, 5).map((ev) => {
+              const diffMs = Date.now() - ev.createdAt;
+              const diffSec = Math.floor(diffMs / 1000);
+              const elapsed = diffSec < 5 ? "Just now" : diffSec < 60 ? `${diffSec}s ago` : `${Math.floor(diffSec / 60)}m ago`;
+              return (
+                <div key={ev.id} className="feed-row">
+                  <span className="feed-time">{elapsed}</span>
+                  <span className={`feed-type text-${ev.type === "complete" ? "green" : ev.type === "breach" ? "red" : "gold"}`}>
+                    {ev.title}
+                  </span>
+                  <span className="feed-node-label text-white">{ev.detail}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Breach Ledger */}
+        <section className="bottom-card breach-ledger-card">
+          <h3>Breach Ledger</h3>
+          <div className="bottom-feed-list">
+            {state.breaches.filter(br => !br.resolved).map((br) => {
+              const isSpreading = br.penalty.includes("Spreading");
+              const diffMs = Date.now() - br.createdAt;
+              const diffSec = Math.floor(diffMs / 1000);
+              const elapsed = diffSec < 60 ? `${diffSec}s ago` : `${Math.floor(diffSec / 60)}m ago`;
+              return (
+                <div key={br.id} className={`breach-row ${isSpreading ? "spreading" : "stable"}`}>
+                  <span className="breach-icon">💀</span>
+                  <div className="breach-info">
+                    <strong>{br.title}</strong>
+                    <span>{br.penalty}</span>
+                  </div>
+                  <span className="breach-timer">{elapsed}</span>
+                </div>
+              );
+            })}
+            {state.breaches.filter(br => !br.resolved).length === 0 && (
+              <p className="no-breaches-msg" style={{ fontSize: "0.8rem", color: "var(--muted)", textAlign: "center", margin: "auto" }}>No active breaches</p>
+            )}
+          </div>
+          <button className="btn-view-all-breaches" onClick={() => setShowBreachModal(true)}>View All Breaches</button>
+        </section>
+
+        {/* Run Rules */}
+        <section className="bottom-card run-rules-card">
+          <div className="rules-header">
+            <h3>Run Rules</h3>
+            <button className="btn-edit-rules" onClick={() => setShowRulesModal(true)}>Edit</button>
+          </div>
+          <div className="rules-grid-dashboard">
+            {runRules.map((rule, idx) => (
+              <div key={idx} className={`rule-dash-row ${rule.enabled ? "enabled" : "disabled"}`} onClick={() => toggleRule(idx)}>
+                <span className="rule-name">{rule.name}</span>
+                <span className="rule-status-badge">{rule.enabled ? "Enabled" : "Disabled"}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </footer>
+
+      {showGuide && (
+        <div className="guide-modal-overlay" onClick={() => setShowGuide(false)}>
+          <div className="guide-modal-box" onClick={(e) => e.stopPropagation()}>
+            <header className="guide-modal-header">
+              <h2>📖 Breadcrumbman Atlas - Official Game Guide</h2>
+              <button className="guide-close-btn" onClick={() => setShowGuide(false)}>×</button>
+            </header>
+            <div className="guide-modal-body">
+              <section className="guide-section">
+                <h3>🧭 Core Concept: "The Wiki as the Map"</h3>
+                <p>Normally in OSRS, you have access to the entire world. In Breadcrumbman, <strong>you only have permission to interact with what is unlocked on your Atlas.</strong></p>
+                <div className="guide-alert important">
+                  <strong>IMPORTANT:</strong> You may only train, fight, buy, travel, quest, or use rewards that connect to your <em>visible legal graph</em>. Accessing hidden content is a <strong>Breach</strong> that must be recorded.
+                </div>
+              </section>
+
+              <section className="guide-section">
+                <h3>📈 Progression & Rule Modes</h3>
+                <p>How fast your atlas expands depends on your chosen Rule Mode.</p>
+                <table className="guide-table">
+                  <thead>
+                    <tr>
+                      <th>Rule Mode</th>
+                      <th>Reveals / Complete</th>
+                      <th>Rescues Earned</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Cozy Scholar</td>
+                      <td>6</td>
+                      <td>Every 3 completes</td>
+                      <td>Gentle progression, frequent rescues, ideal for learning.</td>
+                    </tr>
+                    <tr>
+                      <td>Standard</td>
+                      <td>4</td>
+                      <td>Every 5 completes</td>
+                      <td>Balanced expansion with meaningful routing choices.</td>
+                    </tr>
+                    <tr>
+                      <td>Strict Archivist</td>
+                      <td>3</td>
+                      <td>Every 7 completes</td>
+                      <td>Tighter planning required; penalties for illegal progress.</td>
+                    </tr>
+                    <tr>
+                      <td>Brutal Manuscript</td>
+                      <td>2</td>
+                      <td>Every 10 completes</td>
+                      <td>Sparse reveals; rare rescues; high dead-end challenge.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+
+              <section className="guide-section">
+                <h3>🌡️ Frontier Pressure & Effects</h3>
+                <p>Frontier Pressure (0% to 100%) represents the size, tension, and volatility of your active atlas. It is increased by open active nodes, dead ends, blocked paths, and active breaches.</p>
+                <div className="guide-alert warning">
+                  <strong>WARNING:</strong> At higher pressure levels (Strained & Critical), breaches spread faster (+28%), adjacent page reveal costs increase (+18%), and rescue token cooldowns slow down (+12%). Keep your active list tidy by completing low-tier nodes.
+                </div>
+              </section>
+
+              <section className="guide-section">
+                <h3>🛟 Rescue Tokens & Scholar Favour</h3>
+                <p>If you hit a dead end, consume a <strong>Rescue Token</strong> to perform an <strong>Emergency Reveal</strong>, which legalizes the lowest-tier hidden nodes connected to your current border.</p>
+                <p>Completing nodes awards <strong>Scholar Favour</strong>. Reaching milestones (25%, 50%, 75%, 100%) unlocks ranks and buffs, such as the <strong>Reveal Discount II</strong> at 75% favour.</p>
+              </section>
+
+              <section className="guide-section">
+                <h3>💀 The Breach Desk & Ledger</h3>
+                <p>A Breach occurs when you break the rules of your layout (e.g., using a locked teleport or shop). You must log it in the Breach Ledger. Breaches carry spreading penalties and must be atoned for by completing adjacent legal nodes.</p>
+              </section>
+
+              <section className="guide-section">
+                <h3>🏆 Victory Condition: The Completion Cape</h3>
+                <p>The ultimate goal is to build an unbroken legal bridge from your starting seed to the <strong>Completion Cape</strong> node (Tier 6) and complete the final completion packet of high-level challenges.</p>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRulesModal && (
+        <div className="guide-modal-overlay" onClick={() => setShowRulesModal(false)}>
+          <div className="guide-modal-box" onClick={(e) => e.stopPropagation()}>
+            <header className="guide-modal-header">
+              <h2>⚙ Edit Run Rules</h2>
+              <button className="guide-close-btn" onClick={() => setShowRulesModal(false)}>×</button>
+            </header>
+            <div className="guide-modal-body">
+              <section className="guide-section">
+                <h3>Standard Restrictions</h3>
+                <div className="rules-customizer-grid">
+                  {runRules.map((rule, idx) => (
+                    <label key={idx} className="rule-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={rule.enabled}
+                        onChange={() => toggleRule(idx)}
+                      />
+                      <span className="checkbox-custom" />
+                      <span className="rule-name">{rule.name}</span>
+                    </label>
                   ))}
                 </div>
-              </div>
-            </article>
-            <WikiInspector node={selectedWikiNode} nodeMap={wikiNodeMap} onPick={setSelectedWikiId} />
-          </section>
-        )}
+              </section>
 
-        {state.activeTab === "pathfinder" && (
-          <section className="pathfinder-layout">
-            <article className="panel">
-              <p className="eyebrow">Recommendations</p>
-              <h2>What can I do next?</h2>
-              <div className="recommendation-grid">
-                {recommendations.slice(0, 12).map((node) => (
-                  <button key={node.id} className="recommendation-card" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: node.id }))}>
-                    <span style={{ color: nodeKindColor(node.kind) }}>{KIND_LABELS[node.kind]}</span>
-                    <strong>{node.label}</strong>
-                    <small>{TIER_NAMES[node.tier]} / {node.region}</small>
-                    <p>{node.summary}</p>
-                  </button>
-                ))}
-              </div>
-            </article>
-            <article className="panel route-panel">
-              <p className="eyebrow">Route planner</p>
-              <h2>Path to {goalNode.label}</h2>
-              <div className="route-chain">
-                {route.map((node, index) => (
-                  <button key={`${node.id}-${index}`} onClick={() => patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: node.id }))}>
-                    <span>{index + 1}</span>
-                    <strong>{node.label}</strong>
-                    <small>{KIND_LABELS[node.kind]} / {TIER_NAMES[node.tier]}</small>
-                  </button>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
+              <section className="guide-section">
+                <h3>Custom Rules & Notes</h3>
+                <p>Type any custom constraints or notes for your Breadcrumbman run below.</p>
+                <textarea
+                  className="custom-rules-textarea"
+                  value={customRules}
+                  onChange={(e) => setCustomRules(e.target.value)}
+                  placeholder="e.g. Must complete all diaries in Misthalin before crossing borders."
+                  rows={4}
+                />
+              </section>
+            </div>
+            <footer className="guide-modal-footer" style={{ padding: "12px 20px", background: "#1c1915", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn-save-modal" onClick={() => setShowRulesModal(false)} style={{ background: "linear-gradient(180deg, #d9a84f, #9c7126)", border: "1px solid #7c581a", color: "#0b0a08", fontWeight: 750, padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}>Done</button>
+            </footer>
+          </div>
+        </div>
+      )}
 
-        {state.activeTab === "ledger" && (
-          <section className="ledger-layout">
-            <article className="panel">
-              <p className="eyebrow">Legal archive</p>
-              <h2>Completed breadcrumbs</h2>
-              <div className="archive-grid">
-                {completedNodes.map((node) => (
-                  <button key={node.id} className="archive-card" onClick={() => patchState((current) => ({ ...current, activeTab: "atlas", selectedNodeId: node.id }))}>
-                    <span style={{ color: nodeKindColor(node.kind) }}>{KIND_LABELS[node.kind]}</span>
-                    <strong>{node.label}</strong>
-                    <small>{node.region} / {TIER_NAMES[node.tier]}</small>
+      {showBreachModal && (
+        <div className="guide-modal-overlay" onClick={() => setShowBreachModal(false)}>
+          <div className="guide-modal-box" onClick={(e) => e.stopPropagation()}>
+            <header className="guide-modal-header">
+              <h2>💀 Breach Desk & Ledger</h2>
+              <button className="guide-close-btn" onClick={() => setShowBreachModal(false)}>×</button>
+            </header>
+            <div className="guide-modal-body">
+              
+              <section className="guide-section">
+                <h3>Log a New Breach</h3>
+                <div className="breach-form">
+                  <div className="form-group" style={{ marginBottom: "12px" }}>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--gold)", marginBottom: "4px" }}>Related Node</label>
+                    <select id="breach-node-select" style={{ width: "100%", background: "#1b1915", border: "1px solid var(--border)", borderRadius: "4px", padding: "8px", color: "var(--text)" }}>
+                      <option value="">None / General Rule Break</option>
+                      {GRAPH_NODES.filter(n => !n.id.startsWith("dummy-")).map(n => (
+                        <option key={n.id} value={n.id}>{n.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: "12px" }}>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--gold)", marginBottom: "4px" }}>Custom Title (Optional)</label>
+                    <input type="text" id="breach-title-input" placeholder="e.g. Unauthorized Teleport" style={{ width: "100%", background: "#1b1915", border: "1px solid var(--border)", borderRadius: "4px", padding: "8px", color: "var(--text)" }} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: "16px" }}>
+                    <label style={{ display: "block", fontSize: "0.8rem", color: "var(--gold)", marginBottom: "4px" }}>Penalty Type</label>
+                    <select id="breach-penalty-select" style={{ width: "100%", background: "#1b1915", border: "1px solid var(--border)", borderRadius: "4px", padding: "8px", color: "var(--text)" }}>
+                      <option value="Stable">Stable</option>
+                      <option value="Spreading to 1 connected node">Spreading to 1 connected node</option>
+                      <option value="Spreading to 2 connected nodes">Spreading to 2 connected nodes</option>
+                    </select>
+                  </div>
+                  <button className="btn-log-breach" style={{ background: "linear-gradient(180deg, #d95c50, #a93c30)", border: "1px solid #7a2820", color: "#ece7db", fontWeight: 750, padding: "8px 16px", borderRadius: "4px", cursor: "pointer", width: "100%" }} onClick={() => {
+                    const nodeSel = document.getElementById("breach-node-select") as HTMLSelectElement;
+                    const titleInput = document.getElementById("breach-title-input") as HTMLInputElement;
+                    const penaltySel = document.getElementById("breach-penalty-select") as HTMLSelectElement;
+                    
+                    const nodeId = nodeSel.value;
+                    const title = titleInput.value;
+                    const penalty = penaltySel.value;
+                    
+                    addBreach(title, nodeId || undefined, penalty);
+                    
+                    // Reset fields
+                    nodeSel.value = "";
+                    titleInput.value = "";
+                    penaltySel.value = "Stable";
+                  }}>
+                    Log Breach ⚔
                   </button>
-                ))}
-              </div>
-            </article>
-            <article className="panel">
-              <p className="eyebrow">Breach desk</p>
-              <h2>Keep mistakes playable</h2>
-              <div className="breach-form">
-                <input value={breachDraft.title} onChange={(event) => setBreachDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Used a locked teleport" />
-                <select value={breachDraft.nodeId} onChange={(event) => setBreachDraft((current) => ({ ...current, nodeId: event.target.value }))}>
-                  <option value="">Selected node</option>
-                  {visibleNodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
-                </select>
-                <textarea value={breachDraft.penalty} onChange={(event) => setBreachDraft((current) => ({ ...current, penalty: event.target.value }))} placeholder="Penalty or atonement task" />
-                <button className="primary" onClick={addBreach}>Record breach</button>
-              </div>
-              <div className="breach-list">
-                {state.breaches.map((breach) => (
-                  <article key={breach.id} className={breach.resolved ? "resolved" : ""}>
-                    <div>
-                      <strong>{breach.title}</strong>
-                      <small>{getNode(breach.nodeId)?.label || "General"} / {formatDate(breach.createdAt)}</small>
-                      <p>{breach.penalty}</p>
+                </div>
+              </section>
+
+              <section className="guide-section">
+                <h3>Active Breaches ({state.breaches.filter(b => !b.resolved).length})</h3>
+                <div className="breach-modal-list" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {state.breaches.filter(b => !b.resolved).map(b => {
+                    const isSpreading = b.penalty.includes("Spreading");
+                    return (
+                      <div key={b.id} className={`breach-list-item active-breach ${isSpreading ? "spreading" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isSpreading ? "rgba(217, 92, 80, 0.08)" : "rgba(255,255,255,0.02)", border: "1px solid var(--border)", padding: "8px 12px", borderRadius: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span className="breach-icon">💀</span>
+                          <div className="breach-info">
+                            <strong>{b.title}</strong>
+                            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>{b.penalty}</span>
+                          </div>
+                        </div>
+                        <button className="btn-resolve-breach" style={{ background: "rgba(91, 191, 134, 0.15)", border: "1px solid var(--green)", color: "var(--green)", fontWeight: 700, padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.75rem" }} onClick={() => resolveBreach(b.id)}>Resolve ✓</button>
+                      </div>
+                    );
+                  })}
+                  {state.breaches.filter(b => !b.resolved).length === 0 && (
+                    <p className="no-breaches-msg" style={{ fontSize: "0.8rem", color: "var(--muted)" }}>No active breaches. Your atlas is secure.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="guide-section">
+                <h3>Resolved Ledger ({state.breaches.filter(b => b.resolved).length})</h3>
+                <div className="breach-modal-list" style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "200px", overflowY: "auto" }}>
+                  {state.breaches.filter(b => b.resolved).map(b => (
+                    <div key={b.id} className="breach-list-item resolved-breach" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.01)", border: "1px solid var(--border)", padding: "8px 12px", borderRadius: "4px" }}>
+                      <span className="breach-icon text-green">✓</span>
+                      <div className="breach-info">
+                        <strong style={{ textDecoration: "line-through", color: "var(--muted)" }}>{b.title}</strong>
+                        <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>{b.penalty} — Resolved</span>
+                      </div>
                     </div>
-                    {breach.resolved ? <span className="stamp-ok">Resolved</span> : <button onClick={() => resolveBreach(breach.id)}>Resolve</button>}
-                  </article>
-                ))}
-              </div>
-            </article>
-            <article className="panel wide">
-              <p className="eyebrow">Run log</p>
-              <h2>Atlas history</h2>
-              <div className="event-feed">
-                {state.events.map((event) => (
-                  <article key={event.id}>
-                    <span>{formatDate(event.createdAt)}</span>
-                    <strong>{event.title}</strong>
-                    <p>{event.detail}</p>
-                  </article>
-                ))}
-              </div>
-            </article>
-            <article className="panel wide">
-              <p className="eyebrow">Backups</p>
-              <h2>Recovery shelf</h2>
-              <div className="backup-list">
-                {state.backups.map((backup) => (
-                  <article key={backup.id}>
-                    <div>
-                      <strong>{backup.label}</strong>
-                      <small>{formatDate(backup.createdAt)}</small>
-                    </div>
-                    <button onClick={() => restoreBackup(backup.snapshot)}>Restore</button>
-                  </article>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
+                  ))}
+                  {state.breaches.filter(b => b.resolved).length === 0 && (
+                    <p className="no-breaches-msg" style={{ fontSize: "0.8rem", color: "var(--muted)" }}>No resolved breaches in this session.</p>
+                  )}
+                </div>
+              </section>
 
-        {state.activeTab === "rules" && (
-          <section className="rules-grid">
-            <article className="panel wide">
-              <p className="eyebrow">Mode codex</p>
-              <h2>Breadcrumbman rules</h2>
-              <p>A node is legal when revealed. Completing it opens linked pages. You may only train, fight, buy, travel, quest, or use rewards that connect to your visible graph. Hidden nodes are future knowledge, not current permission.</p>
-            </article>
-            {Object.entries(RULE_MODES).map(([id, mode]) => (
-              <button key={id} className={`mode-card ${state.ruleMode === id ? "selected" : ""}`} onClick={() => patchState((current) => ({ ...current, ruleMode: id as RuleMode }))}>
-                <strong>{mode.label}</strong>
-                <span>{mode.revealCount} reveals / rescue every {mode.rescueEvery}</span>
-                <p>{mode.description}</p>
-              </button>
-            ))}
-            <article className="panel wide">
-              <p className="eyebrow">Progression ladder</p>
-              <div className="tier-ladder">
-                {Object.entries(TIER_NAMES).map(([tier, label]) => (
-                  <article key={tier} className={Number(tier) <= stats.maxTier ? "lit" : ""}>
-                    <span>Tier {tier}</span>
-                    <strong>{label}</strong>
-                    <small>{GRAPH_NODES.filter((node) => node.tier === Number(tier)).length} atlas nodes</small>
-                  </article>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
-      </main>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; route: GraphNode[]; selectedNodeId: string; onSelect: (id: string) => void }) {
-  const { state, nodes, route, selectedNodeId, onSelect } = props;
+// Interactive Graph Canvas Component
+function GraphCanvas(props: {
+  state: RunState;
+  nodes: GraphNode[];
+  route: GraphNode[];
+  onSelect: (id: string) => void;
+}) {
+  const { state, nodes, route, onSelect } = props;
+  const [zoom, setZoom] = useState(1.32);
+  const [pan, setPan] = useState({ x: -150, y: -90 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
+  const [hoveredElement, setHoveredElement] = useState<{
+    type: "node" | "edge";
+    x: number;
+    y: number;
+    title: string;
+    summary: string;
+  } | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    const target = e.target as SVGElement;
+    if (target.closest('.graph-legend') || target.closest('.graph-controls')) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+    setPan({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleReset = () => {
+    setZoom(1.0);
+    setPan({ x: 0, y: 0 });
+  };
+
   const visible = new Set(nodes.map((node) => node.id));
   const edges = GRAPH_EDGES.filter((edge) => visible.has(edge.from) && visible.has(edge.to));
-  const routeEdges = new Set(route.slice(0, -1).map((node, index) => [node.id, route[index + 1].id].sort().join("::")));
-  const ambient = Array.from({ length: 90 }).map((_, index) => ({
-    id: `ambient-${index}`,
-    x: (index * 37 + 11) % 100,
-    y: (index * 53 + 17) % 100,
-    r: 0.16 + (index % 4) * 0.05,
-    tone: index % 9 === 0 ? "hot" : index % 7 === 0 ? "cool" : "dim"
-  }));
-  return (
-    <div className="graph-wrap">
-      <svg viewBox="-12 0 124 100" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Breadcrumbman atlas graph">
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="0.9" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="routeGlow">
-            <feGaussianBlur stdDeviation="1.45" result="routeBlur" />
-            <feMerge>
-              <feMergeNode in="routeBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <g className="ambient-network" aria-hidden="true">
-          {ambient.map((dot, index) => (
-            <circle key={dot.id} className={dot.tone} cx={dot.x} cy={dot.y} r={dot.r} style={{ animationDelay: `${index * -0.37}s` }} />
-          ))}
-        </g>
-        <g className="ambient-web" aria-hidden="true">
-          {ambient.slice(0, 54).map((dot, index) => {
-            const next = ambient[(index * 5 + 13) % ambient.length];
-            return <line key={`${dot.id}-${next.id}`} x1={dot.x} y1={dot.y} x2={next.x} y2={next.y} />;
-          })}
-        </g>
-        {edges.map((edge) => {
-          const from = getNode(edge.from)!;
-          const to = getNode(edge.to)!;
-          const fromState = nodeState(from, state);
-          const toState = nodeState(to, state);
-          const key = [edge.from, edge.to].sort().join("::");
-          const routed = routeEdges.has(key);
-          const strong = routed || fromState === "complete" || toState === "complete";
-          return (
-            <line
-              key={`${edge.from}-${edge.to}`}
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              className={routed ? "edge route" : strong ? "edge strong" : "edge"}
-            />
-          );
-        })}
-        {nodes.map((node) => {
-          const status = nodeState(node, state);
-          const selected = node.id === selectedNodeId;
-          const icon = nodeIcon(node.kind);
-          return (
-            <g key={node.id} className={`graph-node ${status} ${selected ? "selected" : ""}`} onClick={() => onSelect(node.id)} tabIndex={0} role="button">
-              <circle className="node-aura" cx={node.x} cy={node.y} r={selected ? 5.2 : status === "active" ? 4.5 : status === "hidden" ? 2.7 : 3.7} />
-              <circle className="node-core" cx={node.x} cy={node.y} r={status === "hidden" ? 1.55 : status === "complete" ? 2.25 : 2.05} fill={status === "hidden" ? "#252522" : nodeKindColor(node.kind)} />
-              <circle className="node-ring" cx={node.x} cy={node.y} r={selected ? 4.45 : status === "active" ? 3.65 : status === "hidden" ? 2.55 : 3.15} />
-              <text className="node-icon" x={node.x} y={node.y + 0.85}>{status === "hidden" ? "?" : icon}</text>
-              <text className="node-label" x={node.x + 2.8} y={node.y + 0.65}>{node.label}</text>
-            </g>
-          );
-        })}
-      </svg>
-      <div className="atlas-legend">
-        <span><i className="legal" /> Legal / Revealed</span>
-        <span><i className="complete" /> Completed</span>
-        <span><i className="breached" /> Breached</span>
-        <span><i className="locked" /> Locked</span>
-        <span><i className="special" /> Special</span>
-        <span><i className="route" /> Route</span>
-        <span><i className="alt-route" /> Alt. Route</span>
-      </div>
-      <div className="map-controls" aria-hidden="true">
-        <span>⛶</span>
-        <span>+</span>
-        <span>-</span>
-        <span>⌾</span>
-      </div>
-    </div>
-  );
-}
 
-function nodeIcon(kind: NodeKind): string {
-  return {
-    seed: "◆",
-    region: "⌂",
-    quest: "✦",
-    item: "◈",
-    monster: "☠",
-    shop: "¤",
-    skill: "⚔",
-    transport: "✣",
-    guild: "♜",
-    minigame: "✹",
-    boss: "☠",
-    diary: "▤",
-    clue: "?",
-    raid: "✸",
-    milestone: "★"
-  }[kind];
-}
+  const routePairs = useMemo(() => {
+    const pairs = new Set<string>();
+    for (let i = 0; i < route.length - 1; i++) {
+      const u = route[i].id;
+      const v = route[i + 1].id;
+      pairs.add([u, v].sort().join("::"));
+    }
+    return pairs;
+  }, [route]);
 
-function NodeInspector(props: {
-  node: GraphNode;
-  state: RunState;
-  onComplete: () => void;
-  onActivate: (nodeId: string) => void;
-  onBlock: () => void;
-  onClearBlock: () => void;
-  onRescue: () => void;
-}) {
-  const { node, state, onComplete, onActivate, onBlock, onClearBlock, onRescue } = props;
-  const status = nodeState(node, state);
-  const linked = node.links.map((id) => getNode(id)).filter(Boolean) as GraphNode[];
-  return (
-    <aside className="node-inspector">
-      <div className="node-heading">
-        <div>
-          <p className="eyebrow">{KIND_LABELS[node.kind]} / {node.region}</p>
-          <h2>{node.label}</h2>
-          <p>{node.summary}</p>
-        </div>
-        <span className={`node-status ${status}`}>{status}</span>
-      </div>
-      <section className="task-list">
-        <h3>Completion packet</h3>
-        {node.tasks.map((task) => <article key={task}>{task}</article>)}
-      </section>
-      <section className="reward-strip">
-        <article><strong>2,500</strong><span>Coins</span></article>
-        <article><strong>2,000</strong><span>XP Lamp</span></article>
-        <article><strong>1x</strong><span>Teleport</span></article>
-        <article><strong>Diary</strong><span>Relic</span></article>
-      </section>
-      <section className="node-depth">
-        <article><span>Tier</span><strong>{TIER_NAMES[node.tier]}</strong></article>
-        <article><span>Links</span><strong>{node.links.length}</strong></article>
-        <article><span>Tags</span><strong>{node.tags.length}</strong></article>
-      </section>
-      <section className="unlock-list">
-        <h3>Legalizes</h3>
-        {node.unlocks.map((unlock) => <span key={unlock}>{unlock}</span>)}
-      </section>
-      <section className="linked-list">
-        <h3>Known links</h3>
-        {linked.map((link) => {
-          const linkState = nodeState(link, state);
-          return (
-            <button key={link.id} onClick={() => onActivate(link.id)} className={linkState}>
-              <span style={{ color: nodeKindColor(link.kind) }}>{KIND_LABELS[link.kind]}</span>
-              <strong>{link.label}</strong>
-              <small>{linkState}</small>
-            </button>
-          );
-        })}
-      </section>
-      <div className="action-row">
-        <button className="primary" disabled={status === "complete" || status === "hidden"} onClick={onComplete}>Complete node</button>
-        {status === "blocked" ? <button onClick={onClearBlock}>Reopen</button> : <button disabled={status === "complete" || status === "hidden"} onClick={onBlock}>Block</button>}
-        <button disabled={state.rescueTokens <= 0} onClick={onRescue}>Use rescue</button>
-      </div>
-    </aside>
-  );
-}
+  function isNodeInCategory(node: GraphNode, category: string): boolean {
+    const status = nodeState(node, state);
+    switch (category) {
+      case "legal":
+        return status === "active" || status === "revealed";
+      case "completed":
+        return status === "complete";
+      case "breached":
+        return status === "breached";
+      case "locked":
+        return node.label === "?";
+      case "special":
+        return node.kind === "milestone" || node.tags.includes("keystone");
+      default:
+        return true;
+    }
+  }
 
-function WikiInspector(props: {
-  node?: WikiGraphNode;
-  nodeMap: Map<string, WikiGraphNode>;
-  onPick: (id: string) => void;
-}) {
-  const { node, nodeMap, onPick } = props;
-  if (!node) {
+  function renderNodeIconSVG(node: GraphNode, status: string) {
+    const x = node.x;
+    const y = node.y;
+
+    const glyph = (() => {
+      if (status === "complete") return "\u2713";
+      if (status === "breached") return "\u2620";
+      if (node.label === "?") return "?";
+      if (node.kind === "diary") return "\u25A3";
+      if (node.kind === "milestone") return "\u2691";
+      if (node.tags.includes("keystone")) return "\u2605";
+      return "\u2694";
+    })();
+
     return (
-      <aside className="node-inspector">
-        <p className="eyebrow">Wiki graph</p>
-        <h2>No generated wiki data yet</h2>
-        <p>Run the wiki sync script to populate the whole-wiki layer.</p>
-      </aside>
+      <text
+        x={x}
+        y={y + 0.8}
+        textAnchor="middle"
+        className="node-glyph"
+        data-status={status}
+      >
+        {glyph}
+      </text>
     );
   }
-  const linked = node.links.map((id) => nodeMap.get(id)).filter(Boolean) as WikiGraphNode[];
+
   return (
-    <aside className="node-inspector wiki-inspector">
-      <div className="node-heading">
-        <div>
-          <p className="eyebrow">{KIND_LABELS[node.kind]} / Tier {node.tier}</p>
-          <h2>{node.title}</h2>
-          <p>{node.summary || "No extract available from the synced graph yet."}</p>
+    <div className="graph-container">
+      <div className="graph-wrap">
+        <svg
+          viewBox="0 0 100 80"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{ cursor: isDragging ? "grabbing" : "grab" }}
+        >
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="0.6" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id="routeGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.1" result="blur" />
+              <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.95  0 1 0 0 0.7  0 0 1 0 0.25  0 0 0 1 0" result="goldBlur" />
+              <feMerge>
+                <feMergeNode in="goldBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <radialGradient id="atlasVignette" cx="50%" cy="47%" r="58%">
+              <stop offset="0%" stopColor="#1a1812" />
+              <stop offset="58%" stopColor="#0d1110" />
+              <stop offset="100%" stopColor="#050403" />
+            </radialGradient>
+            <pattern id="atlasStars" width="9" height="9" patternUnits="userSpaceOnUse">
+              <circle cx="1.4" cy="2.2" r="0.16" fill="#d9a84f" opacity="0.34" />
+              <circle cx="6.7" cy="6.1" r="0.13" fill="#62bfd6" opacity="0.2" />
+            </pattern>
+          </defs>
+          <rect width="100" height="80" fill="url(#atlasVignette)" />
+          <rect width="100" height="80" fill="url(#atlasStars)" opacity="0.85" />
+
+          <g transform={`translate(${pan.x / 10} ${pan.y / 10}) scale(${zoom})`}>
+            {/* Draw Edges */}
+            {edges.map((edge) => {
+              const from = getNode(edge.from)!;
+              const to = getNode(edge.to)!;
+              
+              const isRouteEdge = routePairs.has([edge.from, edge.to].sort().join("::"));
+
+              const isDimmed = highlightedCategory
+                ? !isNodeInCategory(from, highlightedCategory) || !isNodeInCategory(to, highlightedCategory)
+                : false;
+
+              return (
+                <g key={`${edge.from}-${edge.to}`}>
+                  {isRouteEdge && (
+                    <line
+                      x1={from.x}
+                      y1={from.y}
+                      x2={to.x}
+                      y2={to.y}
+                      className="edge-route-glow"
+                    />
+                  )}
+                  <line
+                    x1={from.x}
+                    y1={from.y}
+                    x2={to.x}
+                    y2={to.y}
+                    className={`edge ${isRouteEdge ? "route-active" : ""} ${isDimmed ? "dimmed" : ""}`}
+                  />
+                  <line
+                    x1={from.x}
+                    y1={from.y}
+                    x2={to.x}
+                    y2={to.y}
+                    stroke="transparent"
+                    strokeWidth="3"
+                    style={{ cursor: "help", pointerEvents: "all" }}
+                    onMouseEnter={(e) => {
+                      setHoveredElement({
+                        type: "edge",
+                        x: e.clientX,
+                        y: e.clientY,
+                        title: `${from.label} ➔ ${to.label}`,
+                        summary: edge.reason || "Wiki connection link"
+                      });
+                    }}
+                    onMouseMove={(e) => {
+                      setHoveredElement(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredElement(null);
+                    }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Draw Nodes */}
+            {nodes.map((node) => {
+              const status = nodeState(node, state);
+              const isSelected = state.selectedNodeId === node.id;
+              const isDimmed = highlightedCategory
+                ? !isNodeInCategory(node, highlightedCategory)
+                : false;
+              
+              return (
+                <g
+                  key={node.id}
+                  className={`graph-node ${status} ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""}`}
+                  onClick={() => onSelect(node.id)}
+                  style={{ pointerEvents: "all" }}
+                  onMouseEnter={(e) => {
+                    setHoveredElement({
+                      type: "node",
+                      x: e.clientX,
+                      y: e.clientY,
+                      title: node.label,
+                      summary: node.summary
+                    });
+                  }}
+                  onMouseMove={(e) => {
+                    setHoveredElement(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredElement(null);
+                  }}
+                >
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={status === "complete" ? 2.65 : 2.45}
+                    fill={nodeKindColor(node.kind)}
+                    className="node-core"
+                  />
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={isSelected ? 4.45 : 3.45}
+                    className="outer-ring"
+                  />
+                  {renderNodeIconSVG(node, status)}
+                  <text x={node.x} y={node.y + 4.8} className="node-text">
+                    {node.label}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      {/* SVG Canvas Overlays */}
+      <div className="graph-legend" style={{ pointerEvents: "auto" }}>
+        <h4>Legend (Click to highlight)</h4>
+        <div
+          className={`legend-item clickable-legend ${highlightedCategory === "legal" ? "active-highlight" : ""}`}
+          onClick={() => setHighlightedCategory(h => h === "legal" ? null : "legal")}
+        >
+          <span className="legend-dot legal" /> Legal / Revealed
+        </div>
+        <div
+          className={`legend-item clickable-legend ${highlightedCategory === "completed" ? "active-highlight" : ""}`}
+          onClick={() => setHighlightedCategory(h => h === "completed" ? null : "completed")}
+        >
+          <span className="legend-dot completed" /> Completed
+        </div>
+        <div
+          className={`legend-item clickable-legend ${highlightedCategory === "breached" ? "active-highlight" : ""}`}
+          onClick={() => setHighlightedCategory(h => h === "breached" ? null : "breached")}
+        >
+          <span className="legend-dot breached" /> Breached
+        </div>
+        <div
+          className={`legend-item clickable-legend ${highlightedCategory === "locked" ? "active-highlight" : ""}`}
+          onClick={() => setHighlightedCategory(h => h === "locked" ? null : "locked")}
+        >
+          <span className="legend-dot locked" /> Locked
+        </div>
+        <div
+          className={`legend-item clickable-legend ${highlightedCategory === "special" ? "active-highlight" : ""}`}
+          onClick={() => setHighlightedCategory(h => h === "special" ? null : "special")}
+        >
+          <span className="legend-dot special" /> Special
+        </div>
+        <div className="legend-item">
+          <span className="legend-line route" /> Route
+        </div>
+        <div className="legend-item">
+          <span className="legend-line alt-route" /> Alt. Route
         </div>
       </div>
-      <div className="wiki-link-actions">
-        <a href={node.url} target="_blank" rel="noreferrer">Open wiki page</a>
+
+      <div className="graph-controls">
+        <button onClick={() => setZoom(z => Math.min(2.5, z + 0.15))}>+</button>
+        <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))}>-</button>
+        <button onClick={handleReset}>🎯</button>
       </div>
-      <section className="unlock-list">
-        <h3>Categories</h3>
-        {node.categories.map((category) => <span key={category}>{category.replace(/_/g, " ")}</span>)}
-      </section>
-      <section className="linked-list">
-        <h3>Synced links</h3>
-        {linked.slice(0, 40).map((link) => (
-          <button key={link.id} onClick={() => onPick(link.id)}>
-            <span style={{ color: nodeKindColor(link.kind) }}>{KIND_LABELS[link.kind]}</span>
-            <strong>{link.title}</strong>
-            <small>{link.inbound + link.outbound}</small>
-          </button>
-        ))}
-      </section>
-    </aside>
+
+      {hoveredElement && (
+        <div
+          className="canvas-tooltip"
+          style={{
+            position: "fixed",
+            left: hoveredElement.x + 12,
+            top: hoveredElement.y + 12,
+            pointerEvents: "none",
+            zIndex: 2000
+          }}
+        >
+          <strong>{hoveredElement.title}</strong>
+          {hoveredElement.summary && <p>{hoveredElement.summary}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 
 export default App;
-
-const BASE_URL = import.meta.env?.BASE_URL || "/";
