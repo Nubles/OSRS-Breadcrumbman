@@ -311,10 +311,12 @@ function App() {
           ))}
         </nav>
         <section className="cockpit-resources">
-          <article><span>Done</span><strong>{stats.completed}/{stats.total}</strong></article>
-          <article><span>Shown</span><strong>{stats.revealed}</strong></article>
-          <article><span>Pressure</span><strong>{pressure.score}%</strong></article>
-          <article><span>Rescue</span><strong>{state.rescueTokens}</strong></article>
+          <article><span>Total Progress</span><strong>{stats.percent}%</strong><div className="mini-meter"><i style={{ width: `${stats.percent}%` }} /></div></article>
+          <article><span>Nodes Discovered</span><strong>{stats.revealed} / {stats.total}</strong></article>
+          <article><span>Completed</span><strong>{stats.completed}</strong></article>
+          <article><span>Breached</span><strong>{state.breachedNodeIds.length}</strong></article>
+          <article><span>Rescue Tokens</span><strong>{state.rescueTokens} / 3</strong></article>
+          <article><span>Scholar Favour</span><strong>{state.scholarFavour}%</strong></article>
         </section>
         <div className="cockpit-actions">
           <button onClick={backupNow}>Backup</button>
@@ -325,54 +327,81 @@ function App() {
         </div>
       </header>
 
-      <section className="cockpit-config">
-        <label>
-          <span>Run</span>
-          <input value={state.runName} onChange={(event) => patchState((current) => ({ ...current, runName: event.target.value }))} />
-        </label>
-        <label>
-          <span>Mode</span>
-          <select value={state.ruleMode} onChange={(event) => patchState((current) => ({ ...current, ruleMode: event.target.value as RuleMode }))}>
-            {Object.entries(RULE_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.label}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Goal</span>
-          <select value={state.goalNodeId} onChange={(event) => patchState((current) => ({ ...current, goalNodeId: event.target.value }))}>
-            {GRAPH_NODES.filter((node) => node.tier >= 4).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
-          </select>
-        </label>
-        <div className={`cockpit-pressure ${pressure.level}`}>
-          <div><span>Frontier Pressure</span><strong>{pressure.score}% / {pressure.level}</strong></div>
-          <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
-        </div>
-      </section>
+      {state.activeTab !== "atlas" && (
+        <section className="cockpit-config">
+          <label>
+            <span>Run</span>
+            <input value={state.runName} onChange={(event) => patchState((current) => ({ ...current, runName: event.target.value }))} />
+          </label>
+          <label>
+            <span>Mode</span>
+            <select value={state.ruleMode} onChange={(event) => patchState((current) => ({ ...current, ruleMode: event.target.value as RuleMode }))}>
+              {Object.entries(RULE_MODES).map(([id, mode]) => <option key={id} value={id}>{mode.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Goal</span>
+            <select value={state.goalNodeId} onChange={(event) => patchState((current) => ({ ...current, goalNodeId: event.target.value }))}>
+              {GRAPH_NODES.filter((node) => node.tier >= 4).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
+            </select>
+          </label>
+          <div className={`cockpit-pressure ${pressure.level}`}>
+            <div><span>Frontier Pressure</span><strong>{pressure.score}% / {pressure.level}</strong></div>
+            <div className="meter-track"><span style={{ width: `${pressure.score}%` }} /></div>
+          </div>
+        </section>
+      )}
 
       {state.activeTab === "atlas" && (
+        <>
         <section className="mockup-cockpit">
           <aside className="mission-rail">
             <article className="mission-card primary-mission">
               <p className="eyebrow">Do this next</p>
               <h1>{bestAction?.node.label || "Pick an active breadcrumb"}</h1>
               <p>{bestAction?.node.summary || "Complete visible nodes to grow the atlas and unlock richer routing advice."}</p>
+              <div className="mission-why">
+                <span>Why?</span>
+                <strong>Opens: {bestAction?.node.links.length || 0} nodes</strong>
+                <strong>Leads to: {goalNode.label}</strong>
+              </div>
               <div className="next-meta">
                 <span>{bestAction ? KIND_LABELS[bestAction.node.kind] : "Atlas"}</span>
                 <span>{bestAction ? TIER_NAMES[bestAction.node.tier] : "Seed"}</span>
                 <span>{bestAction ? `${bestAction.score} value` : "0 value"}</span>
               </div>
+              <div className="effort-row">
+                <span>Estimated Effort</span>
+                <strong><i /> Medium (20-30m)</strong>
+              </div>
               <button className="primary" disabled={!bestAction} onClick={() => bestAction && patchState((current) => ({ ...current, selectedNodeId: bestAction.node.id }))}>
-                Focus breadcrumb
+                Route to Completion Cape
               </button>
             </article>
             <article className="mission-card">
-              <p className="eyebrow">Run Pulse</p>
-              <div className="pulse-list">
-                <div><span>Seed</span><strong>{getNode(state.seedNodeId)?.label || "Lumbridge"}</strong></div>
-                <div><span>Open</span><strong>{pressure.openActive}</strong></div>
-                <div><span>Blocked</span><strong>{pressure.blocked}</strong></div>
-                <div><span>Favour</span><strong>{state.scholarFavour}</strong></div>
+              <div className="panel-title-row"><p className="eyebrow">Frontier Pressure</p><strong>{pressure.score} / 100</strong></div>
+              <h3 className={`pressure-word ${pressure.level}`}>{pressure.level === "steady" ? "Steady" : pressure.level}</h3>
+              <div className="pressure-ticks" aria-hidden="true">
+                {Array.from({ length: 24 }).map((_, index) => <span key={index} className={index < Math.round(pressure.score / 100 * 24) ? "lit" : ""} />)}
               </div>
               <small>{pressure.summary}</small>
+              <div className="pressure-effects">
+                <div><span>Breaches Spread</span><strong>+{Math.max(8, pressure.breached * 7)}%</strong></div>
+                <div><span>Reveal Cost</span><strong>+{Math.max(4, pressure.hiddenFrontier)}%</strong></div>
+                <div><span>Rescue Cooldown</span><strong>+{Math.max(0, pressure.deadEnds * 6)}%</strong></div>
+              </div>
+            </article>
+            <article className="mission-card">
+              <div className="panel-title-row"><p className="eyebrow">Rescue Tokens</p><strong>{state.rescueTokens} / 3</strong></div>
+              <div className="rescue-token-row" aria-hidden="true">
+                {[0, 1, 2].map((token) => <span key={token} className={token < state.rescueTokens ? "charged" : ""} />)}
+              </div>
+              <small>Next token in: 2h 17m</small>
+            </article>
+            <article className="mission-card favour-card">
+              <div className="panel-title-row"><p className="eyebrow">Scholar Favour</p><strong>{state.scholarFavour}%</strong></div>
+              <div className="favour-track"><span style={{ width: `${state.scholarFavour}%` }} /></div>
+              <small>Next reward @ 75% <strong>Reveal Discount II</strong></small>
             </article>
             <article className="mission-card">
               <p className="eyebrow">Milestones</p>
@@ -401,24 +430,27 @@ function App() {
           <section className="atlas-command-deck">
             <div className="deck-heading">
               <div>
-                <p className="eyebrow">Live atlas</p>
-                <h2>Legal breadcrumb web</h2>
+                <p className="eyebrow">Live Atlas</p>
+                <h2>Breadcrumbman Atlas</h2>
               </div>
               <div className="filter-row">
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search visible nodes" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search nodes..." />
+                <button type="button">Filters</button>
                 <select value={kindFilter} onChange={(event) => setKindFilter(event.target.value as NodeKind | "all")}>
                   <option value="all">All types</option>
                   {Object.entries(KIND_LABELS).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
                 </select>
+                <label className="toggle-chip"><input type="checkbox" defaultChecked /> Show Completed</label>
+                <label className="toggle-chip"><input type="checkbox" defaultChecked /> Show Breached</label>
               </div>
             </div>
-            <div className="atlas-toolbar">
+            <div className="atlas-toolbar atlas-stats">
               <article><span>Visible</span><strong>{visibleNodes.length}</strong></article>
               <article><span>Filtered</span><strong>{filteredNodes.length}</strong></article>
               <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
               <article><span>Route</span><strong>{route.length}</strong></article>
             </div>
-            <GraphCanvas state={state} nodes={filteredNodes} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
+            <GraphCanvas state={state} nodes={GRAPH_NODES} route={route} selectedNodeId={selectedNode.id} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
           </section>
 
           <aside className="inspector-stack">
@@ -444,6 +476,43 @@ function App() {
             />
           </aside>
         </section>
+        <section className="mockup-bottom-row">
+          <article className="mission-card">
+            <p className="eyebrow">Recent Reveal Events</p>
+            <div className="event-ledger">
+              {state.events.slice(0, 5).map((event, index) => (
+                <div key={event.id}>
+                  <span>{index === 0 ? "2m ago" : `${6 + index * 9}m ago`}</span>
+                  <strong>{event.title}</strong>
+                  <small>{event.detail}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="mission-card breach-ledger">
+            <p className="eyebrow">Breach Ledger</p>
+            {(state.breaches.length ? state.breaches : [
+              { id: "plague-city", title: "Plague City", penalty: "Spreading to 2 connected nodes", resolved: false },
+              { id: "underground-pass", title: "Underground Pass", penalty: "Spreading to 1 connected node", resolved: false },
+              { id: "fight-arena", title: "Fight Arena", penalty: "Stable", resolved: true }
+            ]).slice(0, 3).map((breach, index) => (
+              <div key={breach.id} className={breach.resolved ? "stable" : ""}>
+                <strong>{breach.title}</strong>
+                <small>{breach.penalty}</small>
+                <span>{index + 1}h {index * 35 + 12}m</span>
+              </div>
+            ))}
+          </article>
+          <article className="mission-card run-rules-card">
+            <div className="panel-title-row"><p className="eyebrow">Run Rules</p><button type="button">Edit</button></div>
+            <div className="rules-mini-grid">
+              {["No Trading", "No Minigames (Except legal)", "No GE", "No Slayer Unlocks", "No PvP", "Ironman Mode"].map((rule, index) => (
+                <div key={rule}><span>{rule}</span><strong>{index === 5 ? "Enabled" : "Disabled"}</strong></div>
+              ))}
+            </div>
+          </article>
+        </section>
+        </>
       )}
 
       <section className="hero-dashboard">
@@ -632,7 +701,7 @@ function App() {
                 <article><span>Edges</span><strong>{GRAPH_EDGES.length}</strong></article>
                 <article><span>Mode</span><strong>{RULE_MODES[state.ruleMode].label}</strong></article>
               </div>
-              <GraphCanvas state={state} nodes={filteredNodes} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
+              <GraphCanvas state={state} nodes={filteredNodes} route={route} selectedNodeId={selectedNode.id} onSelect={(id) => patchState((current) => ({ ...current, selectedNodeId: id }))} />
             </div>
             <NodeInspector
               node={selectedNode}
@@ -849,13 +918,21 @@ function App() {
   );
 }
 
-function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; onSelect: (id: string) => void }) {
-  const { state, nodes, onSelect } = props;
+function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; route: GraphNode[]; selectedNodeId: string; onSelect: (id: string) => void }) {
+  const { state, nodes, route, selectedNodeId, onSelect } = props;
   const visible = new Set(nodes.map((node) => node.id));
   const edges = GRAPH_EDGES.filter((edge) => visible.has(edge.from) && visible.has(edge.to));
+  const routeEdges = new Set(route.slice(0, -1).map((node, index) => [node.id, route[index + 1].id].sort().join("::")));
+  const ambient = Array.from({ length: 90 }).map((_, index) => ({
+    id: `ambient-${index}`,
+    x: (index * 37 + 11) % 100,
+    y: (index * 53 + 17) % 100,
+    r: 0.16 + (index % 4) * 0.05,
+    tone: index % 9 === 0 ? "hot" : index % 7 === 0 ? "cool" : "dim"
+  }));
   return (
     <div className="graph-wrap">
-      <svg viewBox="0 0 100 100" role="img" aria-label="Breadcrumbman atlas graph">
+      <svg viewBox="-12 0 124 100" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Breadcrumbman atlas graph">
         <defs>
           <filter id="glow">
             <feGaussianBlur stdDeviation="0.9" result="blur" />
@@ -864,13 +941,33 @@ function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; onSelect: (id
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="routeGlow">
+            <feGaussianBlur stdDeviation="1.45" result="routeBlur" />
+            <feMerge>
+              <feMergeNode in="routeBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
+        <g className="ambient-network" aria-hidden="true">
+          {ambient.map((dot, index) => (
+            <circle key={dot.id} className={dot.tone} cx={dot.x} cy={dot.y} r={dot.r} style={{ animationDelay: `${index * -0.37}s` }} />
+          ))}
+        </g>
+        <g className="ambient-web" aria-hidden="true">
+          {ambient.slice(0, 54).map((dot, index) => {
+            const next = ambient[(index * 5 + 13) % ambient.length];
+            return <line key={`${dot.id}-${next.id}`} x1={dot.x} y1={dot.y} x2={next.x} y2={next.y} />;
+          })}
+        </g>
         {edges.map((edge) => {
           const from = getNode(edge.from)!;
           const to = getNode(edge.to)!;
           const fromState = nodeState(from, state);
           const toState = nodeState(to, state);
-          const strong = fromState === "complete" || toState === "complete";
+          const key = [edge.from, edge.to].sort().join("::");
+          const routed = routeEdges.has(key);
+          const strong = routed || fromState === "complete" || toState === "complete";
           return (
             <line
               key={`${edge.from}-${edge.to}`}
@@ -878,23 +975,62 @@ function GraphCanvas(props: { state: RunState; nodes: GraphNode[]; onSelect: (id
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              className={strong ? "edge strong" : "edge"}
+              className={routed ? "edge route" : strong ? "edge strong" : "edge"}
             />
           );
         })}
         {nodes.map((node) => {
           const status = nodeState(node, state);
+          const selected = node.id === selectedNodeId;
+          const icon = nodeIcon(node.kind);
           return (
-            <g key={node.id} className={`graph-node ${status}`} onClick={() => onSelect(node.id)} tabIndex={0} role="button">
-              <circle cx={node.x} cy={node.y} r={status === "complete" ? 2.25 : 1.85} fill={nodeKindColor(node.kind)} />
-              <circle cx={node.x} cy={node.y} r={status === "active" ? 3.85 : 3.15} />
-              <text x={node.x + 2.2} y={node.y + 0.45}>{node.label}</text>
+            <g key={node.id} className={`graph-node ${status} ${selected ? "selected" : ""}`} onClick={() => onSelect(node.id)} tabIndex={0} role="button">
+              <circle className="node-aura" cx={node.x} cy={node.y} r={selected ? 5.2 : status === "active" ? 4.5 : status === "hidden" ? 2.7 : 3.7} />
+              <circle className="node-core" cx={node.x} cy={node.y} r={status === "hidden" ? 1.55 : status === "complete" ? 2.25 : 2.05} fill={status === "hidden" ? "#252522" : nodeKindColor(node.kind)} />
+              <circle className="node-ring" cx={node.x} cy={node.y} r={selected ? 4.45 : status === "active" ? 3.65 : status === "hidden" ? 2.55 : 3.15} />
+              <text className="node-icon" x={node.x} y={node.y + 0.85}>{status === "hidden" ? "?" : icon}</text>
+              <text className="node-label" x={node.x + 2.8} y={node.y + 0.65}>{node.label}</text>
             </g>
           );
         })}
       </svg>
+      <div className="atlas-legend">
+        <span><i className="legal" /> Legal / Revealed</span>
+        <span><i className="complete" /> Completed</span>
+        <span><i className="breached" /> Breached</span>
+        <span><i className="locked" /> Locked</span>
+        <span><i className="special" /> Special</span>
+        <span><i className="route" /> Route</span>
+        <span><i className="alt-route" /> Alt. Route</span>
+      </div>
+      <div className="map-controls" aria-hidden="true">
+        <span>⛶</span>
+        <span>+</span>
+        <span>-</span>
+        <span>⌾</span>
+      </div>
     </div>
   );
+}
+
+function nodeIcon(kind: NodeKind): string {
+  return {
+    seed: "◆",
+    region: "⌂",
+    quest: "✦",
+    item: "◈",
+    monster: "☠",
+    shop: "¤",
+    skill: "⚔",
+    transport: "✣",
+    guild: "♜",
+    minigame: "✹",
+    boss: "☠",
+    diary: "▤",
+    clue: "?",
+    raid: "✸",
+    milestone: "★"
+  }[kind];
 }
 
 function NodeInspector(props: {
@@ -922,6 +1058,12 @@ function NodeInspector(props: {
       <section className="task-list">
         <h3>Completion packet</h3>
         {node.tasks.map((task) => <article key={task}>{task}</article>)}
+      </section>
+      <section className="reward-strip">
+        <article><strong>2,500</strong><span>Coins</span></article>
+        <article><strong>2,000</strong><span>XP Lamp</span></article>
+        <article><strong>1x</strong><span>Teleport</span></article>
+        <article><strong>Diary</strong><span>Relic</span></article>
       </section>
       <section className="node-depth">
         <article><span>Tier</span><strong>{TIER_NAMES[node.tier]}</strong></article>

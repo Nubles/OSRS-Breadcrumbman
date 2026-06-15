@@ -110,15 +110,15 @@ main > .atlas-layout {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.15fr) minmax(300px, 1fr) minmax(220px, auto);
-  gap: 12px;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(270px, 0.9fr) minmax(620px, 1.75fr) minmax(250px, auto);
+  gap: 8px;
   align-items: center;
   max-width: 1760px;
   margin: 0 auto 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 10px;
-  background: rgba(16, 16, 16, 0.96);
+  padding: 8px 10px;
+  background: rgba(9, 11, 11, 0.97);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(14px);
 }
@@ -187,13 +187,15 @@ main > .atlas-layout {
 
 .cockpit-resources {
   display: grid;
-  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  grid-template-columns: repeat(6, minmax(86px, 1fr));
+  min-width: 0;
 }
 
 .cockpit-resources article {
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 6px;
-  padding: 7px 9px;
+  min-height: 45px;
+  padding: 6px 9px;
   background: rgba(0, 0, 0, 0.28);
 }
 
@@ -212,6 +214,21 @@ main > .atlas-layout {
   color: var(--gold);
   font-size: 0.94rem;
   line-height: 1.15;
+}
+
+.mini-meter {
+  height: 5px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mini-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f4cc63, #bd8128);
 }
 
 .cockpit-actions {
@@ -261,10 +278,10 @@ main > .atlas-layout {
 .mockup-cockpit {
   display: grid;
   max-width: 1760px;
-  min-height: calc(100vh - 172px);
+  min-height: auto;
   margin: 0 auto;
-  grid-template-columns: minmax(270px, 0.74fr) minmax(560px, 1.65fr) minmax(330px, 0.86fr);
-  gap: 12px;
+  grid-template-columns: minmax(310px, 0.72fr) minmax(760px, 2.15fr) minmax(330px, 0.74fr);
+  gap: 8px;
 }
 
 .mission-rail,
@@ -273,21 +290,23 @@ main > .atlas-layout {
   align-content: start;
   gap: 12px;
   min-width: 0;
+  max-height: 720px;
+  overflow: hidden;
 }
 
 .mission-card,
 .atlas-command-deck,
 .mockup-cockpit .node-inspector {
   border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 8px;
+  border-radius: 4px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 34%),
-    rgba(18, 18, 18, 0.92);
+    rgba(9, 12, 12, 0.94);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
 }
 
 .mission-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .primary-mission {
@@ -300,12 +319,141 @@ main > .atlas-layout {
 .primary-mission h1 {
   margin-bottom: 8px;
   color: var(--gold);
-  font-size: clamp(1.75rem, 2.5vw, 2.65rem);
+  font-size: clamp(1.22rem, 1.45vw, 1.75rem);
   line-height: 0.98;
 }
 
 .primary-mission p {
   color: #c9c2b4;
+}
+
+.mission-why,
+.effort-row {
+  display: grid;
+  gap: 3px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(217, 168, 79, 0.16);
+  padding-top: 9px;
+}
+
+.mission-why span,
+.effort-row span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.mission-why strong {
+  color: #cfc8b8;
+  font-size: 0.78rem;
+}
+
+.effort-row strong {
+  color: #d7d0c1;
+  font-size: 0.76rem;
+}
+
+.effort-row i {
+  display: inline-block;
+  width: 18px;
+  height: 12px;
+  margin-right: 6px;
+  background:
+    linear-gradient(90deg, var(--gold) 0 4px, transparent 4px 7px, var(--gold) 7px 11px, transparent 11px 14px, rgba(217, 168, 79, 0.35) 14px);
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-title-row strong {
+  color: var(--gold);
+}
+
+.pressure-word {
+  margin: 0 0 6px;
+  color: #f35f50;
+  text-transform: capitalize;
+}
+
+.pressure-word.steady {
+  color: var(--green);
+}
+
+.pressure-ticks {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  margin: 4px 0 8px;
+}
+
+.pressure-ticks span {
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pressure-ticks span.lit {
+  background: linear-gradient(180deg, #f5d45e, #d06037);
+  box-shadow: 0 0 8px rgba(217, 168, 79, 0.36);
+}
+
+.pressure-effects {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pressure-effects div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.pressure-effects strong {
+  color: #ef6b56;
+}
+
+.rescue-token-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 0 8px;
+}
+
+.rescue-token-row span {
+  width: 40px;
+  height: 40px;
+  border: 5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  background: #111;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.rescue-token-row span.charged {
+  border-color: #4ed3e8;
+  background: radial-gradient(circle, #d7fbff 0 22%, #29a9c3 24% 54%, #0a3037 56%);
+  box-shadow: 0 0 18px rgba(78, 211, 232, 0.42), inset 0 0 10px rgba(255, 255, 255, 0.22);
+}
+
+.favour-track {
+  height: 10px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.favour-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #7d3cf1, #d18bff);
+  box-shadow: 0 0 14px rgba(161, 123, 232, 0.5);
 }
 
 .pulse-list {
@@ -340,8 +488,8 @@ main > .atlas-layout {
   display: grid;
   align-content: start;
   min-width: 0;
-  padding: 14px;
-  grid-template-rows: auto auto auto;
+  padding: 8px;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .deck-heading {
@@ -354,33 +502,206 @@ main > .atlas-layout {
 
 .deck-heading h2 {
   margin-bottom: 0;
-  font-size: clamp(1.45rem, 2vw, 2.4rem);
+  font-size: clamp(1.1rem, 1.25vw, 1.55rem);
 }
 
 .mockup-cockpit .graph-wrap {
-  height: min(54vh, 540px);
-  min-height: 430px;
-  border-color: rgba(217, 168, 79, 0.14);
+  position: relative;
+  height: min(61vh, 590px);
+  min-height: 520px;
+  border-color: rgba(217, 168, 79, 0.26);
   background:
-    radial-gradient(circle at 52% 48%, rgba(217, 168, 79, 0.09), transparent 18%),
-    radial-gradient(circle at 50% 50%, rgba(91, 191, 134, 0.08), transparent 30%),
+    radial-gradient(circle at 54% 47%, rgba(217, 168, 79, 0.13), transparent 17%),
+    radial-gradient(circle at 70% 55%, rgba(98, 191, 214, 0.11), transparent 18%),
+    radial-gradient(circle at 34% 72%, rgba(217, 92, 80, 0.1), transparent 20%),
     linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    #070807;
-  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+    #060909;
+  background-size: auto, auto, auto, 28px 28px, 28px 28px, auto;
 }
 
 .mockup-cockpit .graph-node text {
-  font-size: 2.45px;
-  stroke-width: 0.46;
+  paint-order: stroke;
 }
 
 .mockup-cockpit .edge {
-  stroke-width: 0.34;
+  stroke: rgba(217, 168, 79, 0.25);
+  stroke-width: 0.22;
 }
 
 .mockup-cockpit .edge.strong {
-  stroke-width: 0.48;
+  stroke: rgba(217, 168, 79, 0.55);
+  stroke-width: 0.34;
+}
+
+.mockup-cockpit .edge.route {
+  filter: url(#routeGlow);
+  stroke: #ffd969;
+  stroke-dasharray: 1.2 0.85;
+  stroke-linecap: round;
+  stroke-width: 0.54;
+}
+
+.ambient-network circle {
+  fill: rgba(217, 168, 79, 0.22);
+}
+
+.ambient-network circle.cool {
+  fill: rgba(98, 191, 214, 0.32);
+}
+
+.ambient-network circle.hot {
+  fill: rgba(217, 92, 80, 0.32);
+}
+
+.ambient-web line {
+  stroke: rgba(255, 255, 255, 0.055);
+  stroke-width: 0.16;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node .node-aura {
+  fill: rgba(217, 168, 79, 0.08);
+  filter: url("#glow");
+}
+
+.graph-node .node-core {
+  filter: url("#glow");
+}
+
+.graph-node .node-ring {
+  fill: transparent;
+  stroke: rgba(217, 168, 79, 0.72);
+  stroke-width: 0.42;
+}
+
+.graph-node .node-icon {
+  fill: #110d08;
+  font-size: 2.2px;
+  font-weight: 950;
+  text-anchor: middle;
+  stroke: rgba(255, 245, 210, 0.34);
+  stroke-width: 0.16;
+}
+
+.graph-node .node-label {
+  fill: #e6dfcf;
+  font-size: 1.78px;
+  font-weight: 780;
+  stroke: #050707;
+  stroke-width: 0.34;
+}
+
+.graph-node.hidden .node-aura {
+  fill: rgba(255, 255, 255, 0.035);
+}
+
+.graph-node.hidden .node-ring {
+  stroke: rgba(255, 255, 255, 0.26);
+}
+
+.graph-node.hidden .node-icon,
+.graph-node.hidden .node-label {
+  fill: rgba(255, 255, 255, 0.42);
+}
+
+.graph-node.hidden .node-label {
+  display: none;
+}
+
+.graph-node.complete .node-ring {
+  stroke: #76d45f;
+  stroke-width: 0.56;
+}
+
+.graph-node.breached .node-ring {
+  stroke: #f05947;
+  stroke-width: 0.72;
+}
+
+.graph-node.blocked .node-ring {
+  stroke: var(--violet);
+}
+
+.graph-node.selected .node-aura {
+  fill: rgba(255, 217, 105, 0.23);
+}
+
+.graph-node.selected .node-ring {
+  stroke: #ffd969;
+  stroke-width: 0.76;
+}
+
+.atlas-legend,
+.map-controls {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid rgba(217, 168, 79, 0.22);
+  border-radius: 4px;
+  background: rgba(7, 9, 9, 0.82);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(8px);
+}
+
+.atlas-legend {
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 6px;
+  min-width: 130px;
+  padding: 10px;
+}
+
+.atlas-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #c9c2b4;
+  font-size: 0.72rem;
+}
+
+.atlas-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px currentColor;
+}
+
+.atlas-legend .complete { background: var(--green); }
+.atlas-legend .breached { background: var(--red); }
+.atlas-legend .locked { background: #555; }
+.atlas-legend .special { background: var(--violet); }
+.atlas-legend .route,
+.atlas-legend .alt-route {
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: #ffd969;
+}
+
+.atlas-legend .alt-route {
+  background: #89f5ff;
+}
+
+.map-controls {
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  overflow: hidden;
+}
+
+.map-controls span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d8d1c1;
+  font-weight: 900;
 }
 
 .inspector-stack .node-inspector {
@@ -1640,6 +1961,311 @@ small {
   .action-row button,
   .onboarding-actions button {
     width: 100%;
+  }
+}
+
+.mockup-cockpit .filter-row {
+  min-width: min(760px, 100%);
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mockup-cockpit .filter-row input,
+.mockup-cockpit .filter-row select,
+.mockup-cockpit .filter-row button,
+.toggle-chip {
+  min-height: 32px;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(0, 0, 0, 0.24);
+  color: #cfc8b8;
+  font-weight: 750;
+}
+
+.toggle-chip input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--cyan);
+}
+
+.mockup-cockpit .atlas-stats {
+  display: none;
+}
+
+.mockup-cockpit .node-inspector {
+  border-color: rgba(217, 168, 79, 0.24);
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(217, 168, 79, 0.045), transparent 28%),
+    rgba(9, 12, 12, 0.96);
+}
+
+.mockup-cockpit .node-heading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  border-bottom: 1px solid rgba(217, 168, 79, 0.18);
+  padding-bottom: 12px;
+}
+
+.mockup-cockpit .node-heading h2 {
+  margin-bottom: 6px;
+  font-size: clamp(1.45rem, 1.8vw, 2.05rem);
+}
+
+.mockup-cockpit .node-heading p:not(.eyebrow) {
+  color: #c9c2b4;
+}
+
+.mockup-cockpit .node-status {
+  align-self: start;
+  border: 1px solid rgba(217, 168, 79, 0.38);
+  border-radius: 6px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mockup-cockpit .task-list h3,
+.mockup-cockpit .unlock-list h3,
+.mockup-cockpit .linked-list h3 {
+  color: #e9dfce;
+  font-size: 0.9rem;
+}
+
+.mockup-cockpit .task-list {
+  border-bottom: 1px solid rgba(217, 168, 79, 0.16);
+  padding-bottom: 12px;
+}
+
+.reward-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.reward-strip article {
+  display: grid;
+  min-height: 66px;
+  place-items: center;
+  border: 1px solid rgba(217, 168, 79, 0.18);
+  border-radius: 4px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  text-align: center;
+}
+
+.reward-strip strong {
+  color: var(--gold);
+  font-size: 0.86rem;
+}
+
+.reward-strip span {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.mockup-cockpit .task-list article {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mockup-cockpit .node-depth article {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.mockup-cockpit .node-depth span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mockup-cockpit .node-depth strong {
+  color: var(--gold);
+}
+
+.mockup-cockpit .unlock-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mockup-cockpit .unlock-list span {
+  border-radius: 4px;
+  color: #d5ceb9;
+  font-size: 0.78rem;
+}
+
+.mockup-cockpit .linked-list button {
+  min-height: 42px;
+  grid-template-columns: 62px 1fr auto;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.mockup-cockpit .action-row {
+  display: grid;
+  grid-template-columns: 1fr 0.55fr;
+  gap: 8px;
+}
+
+.mockup-cockpit .action-row button:first-child,
+.mockup-cockpit .action-row button:last-child {
+  grid-column: 1 / -1;
+}
+
+.mockup-cockpit .action-row button:last-child {
+  border-color: rgba(98, 191, 214, 0.6);
+  background: linear-gradient(180deg, rgba(56, 167, 188, 0.58), rgba(18, 91, 105, 0.86));
+}
+
+.mockup-bottom-row {
+  display: grid;
+  max-width: 1760px;
+  margin: 8px auto 0;
+  grid-template-columns: minmax(420px, 1.2fr) minmax(320px, 0.9fr) minmax(360px, 1fr);
+  gap: 8px;
+}
+
+.event-ledger,
+.rules-mini-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.event-ledger div {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 4px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+
+.event-ledger span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.event-ledger strong {
+  color: var(--gold);
+  font-size: 0.82rem;
+}
+
+.event-ledger small {
+  grid-column: 2;
+}
+
+.breach-ledger div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  margin-top: 7px;
+  border: 1px solid rgba(217, 92, 80, 0.2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: rgba(88, 28, 24, 0.28);
+}
+
+.breach-ledger div.stable {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.breach-ledger strong {
+  color: #ef6b56;
+}
+
+.breach-ledger small {
+  grid-column: 1;
+}
+
+.breach-ledger span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: #ef6b56;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.run-rules-card button {
+  min-height: 28px;
+  padding: 4px 10px;
+}
+
+.rules-mini-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rules-mini-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 0;
+  color: #c9c2b4;
+  font-size: 0.76rem;
+}
+
+.rules-mini-grid strong {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 700px) {
+  .mockup-cockpit,
+  .mockup-bottom-row {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 100%;
+  }
+
+  .mission-rail,
+  .inspector-stack {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .mission-rail,
+  .mockup-bottom-row,
+  .rules-mini-grid,
+  .reward-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mockup-cockpit .filter-row {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mockup-cockpit .filter-row input,
+  .mockup-cockpit .filter-row select,
+  .mockup-cockpit .filter-row button,
+  .toggle-chip {
+    width: 100%;
+  }
+
+  .mockup-cockpit .graph-wrap {
+    height: 440px;
+    min-height: 440px;
+  }
+
+  .primary-mission h1 {
+    font-size: clamp(1.9rem, 10vw, 2.5rem);
   }
 }
 
