@@ -1,22 +1,22 @@
 :root {
-  color: #eef4e8;
-  background: #08110f;
+  color: #ece7db;
+  background: #111111;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   line-height: 1.5;
   text-rendering: optimizeLegibility;
-  --bg: #08110f;
-  --panel: rgba(13, 25, 22, 0.86);
-  --panel-strong: rgba(17, 34, 30, 0.94);
-  --line: rgba(206, 241, 205, 0.16);
-  --text: #eef4e8;
-  --muted: #9fb3a5;
-  --gold: #e5c66b;
-  --green: #6bd39a;
-  --cyan: #7bd4e6;
-  --violet: #b598f0;
-  --red: #e36e62;
-  --ink: #151409;
+  --bg: #111111;
+  --panel: rgba(25, 25, 25, 0.92);
+  --panel-strong: rgba(31, 31, 31, 0.97);
+  --line: rgba(255, 255, 255, 0.11);
+  --text: #ece7db;
+  --muted: #9c9a94;
+  --gold: #d9a84f;
+  --green: #5bbf86;
+  --cyan: #62bfd6;
+  --violet: #a17be8;
+  --red: #d95c50;
+  --ink: #0c0c0c;
   --shadow: 0 24px 90px rgba(0, 0, 0, 0.44);
 }
 
@@ -29,10 +29,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 18% 12%, rgba(123, 212, 230, 0.14), transparent 28%),
-    radial-gradient(circle at 80% 8%, rgba(107, 211, 154, 0.12), transparent 28%),
-    radial-gradient(circle at 52% 78%, rgba(181, 152, 240, 0.11), transparent 34%),
-    linear-gradient(135deg, #08110f 0%, #10201d 48%, #070c0b 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
+    linear-gradient(135deg, #171717 0%, #101010 46%, #080808 100%);
 }
 
 button,
@@ -61,8 +59,8 @@ p {
 
 h1 {
   margin-bottom: 10px;
-  font-size: clamp(2.5rem, 5.5vw, 6rem);
-  line-height: 0.92;
+  font-size: clamp(2.1rem, 4.2vw, 4.8rem);
+  line-height: 0.96;
   letter-spacing: 0;
 }
 
@@ -92,9 +90,307 @@ h3 {
   min-height: 100vh;
   padding: 24px;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.hero-dashboard,
+.command-header,
+.progress-ribbon,
+.insight-strip,
+.command-grid,
+.tab-bar,
+main > .atlas-layout {
+  display: none;
+}
+
+.cockpit-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.15fr) minmax(300px, 1fr) minmax(220px, auto);
+  gap: 12px;
+  align-items: center;
+  max-width: 1760px;
+  margin: 0 auto 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(16, 16, 16, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
+}
+
+.cockpit-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.cockpit-brand .brand-seal {
+  width: 44px;
+  height: 44px;
+  font-size: 0.92rem;
+}
+
+.cockpit-brand span,
+.cockpit-brand strong {
+  display: block;
+  min-width: 0;
+}
+
+.cockpit-brand span {
+  color: var(--text);
+  font-size: 0.96rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.cockpit-brand strong {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cockpit-tabs,
+.cockpit-actions,
+.cockpit-resources {
+  display: flex;
+  gap: 6px;
+}
+
+.cockpit-tabs {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.cockpit-tabs button,
+.cockpit-actions button {
+  min-height: 34px;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.cockpit-tabs button.active {
+  border-color: rgba(217, 168, 79, 0.5);
+  background: rgba(217, 168, 79, 0.14);
+  color: #f4d188;
+}
+
+.cockpit-resources {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+}
+
+.cockpit-resources article {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.cockpit-resources span,
+.cockpit-config span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cockpit-resources strong {
+  display: block;
+  color: var(--gold);
+  font-size: 0.94rem;
+  line-height: 1.15;
+}
+
+.cockpit-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cockpit-config {
+  display: grid;
+  max-width: 1760px;
+  margin: 0 auto 10px;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(180px, 0.5fr) minmax(220px, 0.75fr) minmax(320px, 1fr);
+  gap: 10px;
+}
+
+.cockpit-config label,
+.cockpit-pressure {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(16, 16, 16, 0.78);
+}
+
+.cockpit-config input,
+.cockpit-config select {
+  margin-top: 6px;
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.cockpit-pressure {
+  display: grid;
+  gap: 8px;
+}
+
+.cockpit-pressure > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cockpit-pressure strong {
+  color: var(--gold);
+}
+
+.mockup-cockpit {
+  display: grid;
+  max-width: 1760px;
+  min-height: calc(100vh - 172px);
+  margin: 0 auto;
+  grid-template-columns: minmax(270px, 0.74fr) minmax(560px, 1.65fr) minmax(330px, 0.86fr);
+  gap: 12px;
+}
+
+.mission-rail,
+.inspector-stack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mission-card,
+.atlas-command-deck,
+.mockup-cockpit .node-inspector {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 34%),
+    rgba(18, 18, 18, 0.92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.mission-card {
+  padding: 14px;
+}
+
+.primary-mission {
+  border-color: rgba(217, 168, 79, 0.26);
+  background:
+    linear-gradient(135deg, rgba(217, 168, 79, 0.1), transparent 48%),
+    rgba(18, 18, 18, 0.96);
+}
+
+.primary-mission h1 {
+  margin-bottom: 8px;
+  color: var(--gold);
+  font-size: clamp(1.75rem, 2.5vw, 2.65rem);
+  line-height: 0.98;
+}
+
+.primary-mission p {
+  color: #c9c2b4;
+}
+
+.pulse-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pulse-list div {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.pulse-list span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pulse-list strong {
+  display: block;
+  color: var(--gold);
+}
+
+.atlas-command-deck {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding: 14px;
+  grid-template-rows: auto auto auto;
+}
+
+.deck-heading {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.deck-heading h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.45rem, 2vw, 2.4rem);
+}
+
+.mockup-cockpit .graph-wrap {
+  height: min(54vh, 540px);
+  min-height: 430px;
+  border-color: rgba(217, 168, 79, 0.14);
+  background:
+    radial-gradient(circle at 52% 48%, rgba(217, 168, 79, 0.09), transparent 18%),
+    radial-gradient(circle at 50% 50%, rgba(91, 191, 134, 0.08), transparent 30%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    #070807;
+  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+.mockup-cockpit .graph-node text {
+  font-size: 2.45px;
+  stroke-width: 0.46;
+}
+
+.mockup-cockpit .edge {
+  stroke-width: 0.34;
+}
+
+.mockup-cockpit .edge.strong {
+  stroke-width: 0.48;
+}
+
+.inspector-stack .node-inspector {
+  position: static;
+  max-height: none;
+  overflow: visible;
+}
+
+.route-card {
+  border-color: rgba(98, 191, 214, 0.18);
 }
 
 .hero-dashboard {
@@ -103,10 +399,10 @@ h3 {
   gap: 18px;
   max-width: 1580px;
   margin: 0 auto 18px;
-  border: 1px solid rgba(206, 241, 205, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(13, 25, 22, 0.9), rgba(5, 10, 9, 0.96));
+  background: linear-gradient(135deg, rgba(31, 31, 31, 0.96), rgba(12, 12, 12, 0.98));
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -118,8 +414,8 @@ h3 {
 .atlas-mark {
   display: inline-flex;
   margin-bottom: 12px;
-  border: 1px solid rgba(229, 198, 107, 0.42);
-  border-radius: 999px;
+  border: 1px solid rgba(217, 168, 79, 0.42);
+  border-radius: 6px;
   padding: 6px 10px;
   color: var(--gold);
   font-size: 0.72rem;
@@ -129,14 +425,62 @@ h3 {
 }
 
 .hero-copy h1 {
-  font-size: clamp(2.6rem, 5.4vw, 5.8rem);
+  font-size: clamp(2.5rem, 4.8vw, 5rem);
 }
 
 .hero-copy p {
   max-width: 680px;
-  color: #c3d5c8;
+  color: #c9c2b4;
   font-size: 1.02rem;
 }
+
+.pressure-meter {
+  display: grid;
+  gap: 8px;
+  max-width: 620px;
+  margin-top: 18px;
+  border: 1px solid rgba(217, 168, 79, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.pressure-meter > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pressure-meter span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pressure-meter strong {
+  color: var(--gold);
+}
+
+.meter-track {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.meter-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), var(--gold));
+  box-shadow: 0 0 18px rgba(217, 168, 79, 0.35);
+}
+
+.pressure-meter.watch .meter-track span { background: linear-gradient(90deg, var(--gold), #d77f3f); }
+.pressure-meter.strained .meter-track span,
+.pressure-meter.critical .meter-track span { background: linear-gradient(90deg, #d77f3f, var(--red)); }
 
 .hero-actions {
   display: flex;
@@ -148,9 +492,11 @@ h3 {
 .hero-orbit {
   position: relative;
   min-height: 290px;
-  border: 1px solid rgba(206, 241, 205, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: radial-gradient(circle at 50% 50%, rgba(107, 211, 154, 0.14), transparent 26%), rgba(3, 8, 7, 0.32);
+  background:
+    linear-gradient(135deg, rgba(217, 168, 79, 0.1), transparent 36%),
+    rgba(0, 0, 0, 0.34);
   overflow: hidden;
 }
 
@@ -206,10 +552,10 @@ h3 {
 .insight-strip article,
 .atlas-toolbar article,
 .node-depth article {
-  border: 1px solid rgba(206, 241, 205, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
-  background: rgba(3, 8, 7, 0.3);
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .hero-metrics span,
@@ -231,6 +577,11 @@ h3 {
   display: block;
   color: var(--gold);
   font-size: 1.08rem;
+}
+
+.hero-metrics small {
+  display: block;
+  margin-top: 4px;
 }
 
 .onboarding {
@@ -352,10 +703,10 @@ button:hover {
 }
 
 .primary {
-  border-color: rgba(107, 211, 154, 0.55);
-  background: linear-gradient(180deg, #85e6ad, #318d61);
-  color: #04100b;
-  box-shadow: 0 10px 24px rgba(107, 211, 154, 0.16);
+  border-color: rgba(217, 168, 79, 0.55);
+  background: linear-gradient(180deg, #efc46f, #946321);
+  color: #100b04;
+  box-shadow: 0 10px 24px rgba(217, 168, 79, 0.16);
 }
 
 .danger {
@@ -392,8 +743,8 @@ button:hover {
   border: 2px solid rgba(229, 198, 107, 0.75);
   border-radius: 50%;
   background:
-    radial-gradient(circle, #f0dfa2 0 28%, #6bd39a 29% 57%, #132820 58%);
-  color: #07120d;
+    radial-gradient(circle, #f0dfa2 0 28%, #d9a84f 29% 57%, #171717 58%);
+  color: #0f0a04;
   font-size: 1.45rem;
   font-weight: 950;
 }
@@ -467,6 +818,95 @@ button:hover {
   margin: 0 auto 14px;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 10px;
+}
+
+.command-grid {
+  display: grid;
+  max-width: 1580px;
+  margin: 0 auto 14px;
+  grid-template-columns: minmax(300px, 1.1fr) repeat(3, minmax(220px, 0.7fr));
+  gap: 12px;
+}
+
+.next-card,
+.command-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--panel);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+}
+
+.next-card h2 {
+  font-size: clamp(1.35rem, 2vw, 2rem);
+}
+
+.next-card p,
+.command-card small {
+  color: var(--muted);
+}
+
+.next-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.next-meta span,
+.milestone {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #d8d0c1;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.milestone-list,
+.mini-route,
+.mini-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.milestone {
+  display: grid;
+  gap: 2px;
+}
+
+.milestone.gold { border-color: rgba(217, 168, 79, 0.34); }
+.milestone.green { border-color: rgba(91, 191, 134, 0.34); }
+.milestone.cyan { border-color: rgba(98, 191, 214, 0.34); }
+.milestone.red { border-color: rgba(217, 92, 80, 0.34); }
+.milestone.violet { border-color: rgba(161, 123, 232, 0.34); }
+
+.mini-route button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  justify-content: start;
+  min-height: 38px;
+  padding: 8px;
+  text-align: left;
+}
+
+.mini-route button span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(217, 168, 79, 0.16);
+  color: var(--gold);
+  font-size: 0.72rem;
+}
+
+.mini-feed div {
+  display: grid;
+  gap: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
 }
 
 .insight-strip small {
@@ -577,9 +1017,9 @@ main {
   border-radius: 8px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 50%, rgba(107, 211, 154, 0.1), transparent 28%),
-    radial-gradient(circle at 18% 70%, rgba(229, 198, 107, 0.08), transparent 22%),
-    linear-gradient(135deg, rgba(6, 15, 13, 0.9), rgba(11, 22, 20, 0.96));
+    linear-gradient(135deg, rgba(217, 168, 79, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    rgba(8, 8, 8, 0.96);
 }
 
 .atlas-toolbar {
@@ -629,6 +1069,11 @@ main {
   stroke-width: 0.45;
 }
 
+.graph-node.blocked circle:nth-child(2) {
+  stroke: var(--violet);
+  stroke-width: 0.46;
+}
+
 .graph-node.breached circle:nth-child(2) {
   stroke: var(--red);
   stroke-width: 0.5;
@@ -667,6 +1112,11 @@ main {
 .node-status.breached {
   color: #ffc0ba;
   background: rgba(227, 110, 98, 0.16);
+}
+
+.node-status.blocked {
+  color: #dbc9ff;
+  background: rgba(161, 123, 232, 0.16);
 }
 
 .task-list,
@@ -1028,6 +1478,32 @@ small {
     padding: 16px;
   }
 
+  .cockpit-topbar,
+  .cockpit-config,
+  .mockup-cockpit {
+    grid-template-columns: 1fr;
+  }
+
+  .cockpit-topbar {
+    position: static;
+  }
+
+  .cockpit-resources {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mockup-cockpit {
+    min-height: 0;
+  }
+
+  .mission-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .atlas-command-deck {
+    grid-template-rows: auto auto auto;
+  }
+
   .onboarding-card,
   .command-header,
   .hero-dashboard,
@@ -1047,6 +1523,7 @@ small {
   .resource-bar,
   .progress-ribbon,
   .insight-strip,
+  .command-grid,
   .atlas-toolbar,
   .recommendation-grid,
   .archive-grid,
@@ -1064,6 +1541,48 @@ small {
   .app-shell,
   .onboarding {
     padding: 12px;
+  }
+
+  .cockpit-topbar,
+  .cockpit-config,
+  .mission-card,
+  .atlas-command-deck,
+  .mockup-cockpit .node-inspector {
+    padding: 12px;
+  }
+
+  .cockpit-tabs,
+  .cockpit-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cockpit-tabs button,
+  .cockpit-actions button {
+    width: 100%;
+  }
+
+  .cockpit-resources,
+  .mission-rail,
+  .pulse-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deck-heading {
+    display: grid;
+  }
+
+  .atlas-command-deck {
+    grid-template-rows: auto auto auto;
+  }
+
+  .mockup-cockpit .graph-wrap {
+    height: 440px;
+    min-height: 440px;
+  }
+
+  .primary-mission h1 {
+    font-size: clamp(1.9rem, 10vw, 2.5rem);
   }
 
   .onboarding-card,
@@ -1090,6 +1609,7 @@ small {
   .resource-bar,
   .progress-ribbon,
   .insight-strip,
+  .command-grid,
   .atlas-toolbar,
   .recommendation-grid,
   .archive-grid,
@@ -1121,4 +1641,14 @@ small {
   .onboarding-actions button {
     width: 100%;
   }
+}
+
+.app-shell > .hero-dashboard,
+.app-shell > .command-header,
+.app-shell > .progress-ribbon,
+.app-shell > .insight-strip,
+.app-shell > .command-grid,
+.app-shell > .tab-bar,
+.app-shell > main > .atlas-layout {
+  display: none !important;
 }
